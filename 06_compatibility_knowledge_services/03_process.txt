@@ -1,0 +1,25 @@
+Module: Compatibility and Knowledge Services
+Process and techniques
+
+This module provides three types of evidence: compatibility/value prediction, component knowledge, and alternative build options. The LLM must not guess these results.
+
+Compatibility/value model techniques
+- Start with an explainable baseline and rule-based hard overrides (socket must match, wattage must exceed load with headroom).
+- Split evaluation data by time and product generation to prevent data leakage.
+- Focus on recall and false negatives for INCOMPATIBLE cases, since a false "compatible" can break a build.
+- Calibrate probability scores.
+- Use SHAP or reason codes for explanation, but do not describe them as proof of cause.
+- Monitor model drift by category, product generation, and hazard type (e.g. new socket launches).
+
+Component RAG techniques
+- Use hybrid retrieval with BM25 and vector search, followed by reranking.
+- Split documents by spec section and procedure. Do not cut an installation step in the middle.
+- Filter by manufacturer, part category, language, effective date, and expiry date.
+- Return document_id, page, and section with each passage.
+- Say that evidence was not found when retrieval confidence is too low.
+
+Alternative-build techniques
+- Calculate several substitution options and a value/performance score for the whole build.
+- Treat discontinued parts and a wrong socket or chipset as hard constraints.
+- Treat price difference and benchmark delta as weighted costs.
+- Show price, performance delta, and freshness for each option.

@@ -1,0 +1,18 @@
+Module: Decision and LLM Engine
+Main workflow
+
+1. Receive the compatibility result, price and stock summary, alternative build options, RAG evidence, and data-quality report.
+2. Check that all data matches the same request, the same parts list, and the same currency and time.
+3. Apply deterministic policy rules to select one action:
+   - FINALIZE_BUILD: compatible, within budget, and in stock
+   - SWAP_COMPONENT: a clearly better or cheaper compatible alternative is available
+   - WAIT_FOR_PRICE_DROP: price is high relative to trend, or the part is temporarily out of stock with no good alternative
+   - AVOID_COMBINATION: incompatible parts (e.g. wrong socket, insufficient PSU) with no safe alternative
+4. Give hard compatibility rules (socket, wattage, form factor) the highest priority.
+5. Calculate confidence and an escalation flag from uncertainty, missing data, and conflicting prices.
+6. Build an evidence package with only validated facts and citations.
+7. Lock the action code before calling the LLM.
+8. Ask the LLM to explain the action in simple natural language.
+9. Validate the JSON output, citations, numbers, safety text (e.g. wattage warnings), and action code.
+10. Retry a limited number of times or use a fixed template if validation fails.
+11. Return the result with policy, model, prompt, and data versions.

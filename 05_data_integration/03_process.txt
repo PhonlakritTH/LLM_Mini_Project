@@ -1,0 +1,18 @@
+Module: Data Integration
+Process and techniques
+
+Data Integration combines many sources into one consistent snapshot. Price and stock must be correct at the moment of the request, and every part's compatibility must be checked against the whole build, not only against the CPU or the case alone.
+
+Key techniques
+- Use a canonical data model with schema and meaning versions.
+- Keep event time (when the price/stock was observed) separate from ingestion time to handle late data.
+- Use idempotent upserts and content hashes to prevent duplicates.
+- Use a consistent unit system (THB, watts, mm) across all records.
+- Build a compatibility group (socket, chipset, form factor, wattage headroom) and use it to filter candidate parts.
+- Keep source lineage for every record and important field.
+- Run a quality gate before scoring or recommendation.
+- Add a degraded flag when an important field (price, stock, or a key spec) is missing or stale.
+- Reuse the same feature code for training and online inference to reduce training-serving skew.
+- Monitor data contracts and schema drift between producers and consumers.
+
+Success means a snapshot is repeatable, versioned, fresh, and traceable to every original source.

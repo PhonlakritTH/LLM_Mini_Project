@@ -1,0 +1,31 @@
+Module: External Data Services
+
+Recommended environment
+- Python 3.12 or newer
+- FastAPI for separate adapter services, or a shared internal package
+- httpx or aiohttp for asynchronous HTTP calls
+- Pydantic for provider and canonical schemas
+- Tenacity and a circuit-breaker library
+- Redis for short-term caching and distributed rate limits
+- pytest with respx or VCR.py for adapter and contract tests
+
+External data providers
+- Price API: retailer prices, currency, discounts, and bundle offers
+- Stock/Availability API: in-stock status, restock date, and warehouse location
+- Benchmark API: Cinebench, 3DMark, PassMark, and in-game FPS scores per component
+- Spec/Compatibility API or feed: socket, chipset, form factor, wattage, and driver requirements
+
+Required configuration
+- PRICE_API_KEY, STOCK_API_KEY, and BENCHMARK_API_KEY
+- PROVIDER_TIMEOUT, CACHE_TTL, RATE_LIMIT, and USER_AGENT
+- Provider license, attribution, and data-retention rules
+
+Use TLS verification, an outbound-domain allowlist, UTC timestamps, per-provider metrics, and test API keys for development.
+
+Example installation
+- Adapter API: pip install fastapi "uvicorn[standard]" pydantic pydantic-settings
+- External calls and retries: pip install httpx tenacity pybreaker
+- Cache and rate limits: pip install redis
+- Provider tests: pip install pytest pytest-asyncio respx vcrpy
+
+This module validates and normalizes provider responses. It does not create embeddings or run a vector index.

@@ -1,0 +1,19 @@
+Module: Compatibility and Knowledge Services
+Main workflow
+
+1. Receive PartCatalogSnapshot and check the feature schema version.
+2. Build features for price, stock, benchmark, spec, and existing-parts compatibility (socket, chipset, form factor, wattage headroom).
+3. Run the compatibility/value model and return a score with uncertainty.
+4. Convert the score to COMPATIBLE, NEEDS_REVIEW, or INCOMPATIBLE using approved versioned thresholds.
+5. Create compatibility reason codes or model explanations (e.g. "PSU wattage insufficient for this GPU").
+6. Build a Component RAG query from part category, spec question, and language.
+7. Retrieve only current manufacturer manuals and spec sheets using metadata filters.
+8. Use hybrid search and reranking to select the best evidence.
+9. Calculate alternative build options (swap CPU, GPU, RAM, or PSU within budget).
+10. Remove alternatives that are discontinued or break a hard rule (wrong socket or chipset).
+11. Return CompatibilityAssessment, RetrievedEvidence, and AlternativeBuildOptions with sources and versions.
+12. If a service fails, use conservative rules or the official spec sheet and mark the result as degraded.
+
+Offline lifecycle
+- Data review -> labeling -> time/generation split -> training -> calibration -> safety evaluation -> approval -> model registry -> canary deployment -> monitoring and rollback
+- Document review -> parsing -> chunking -> embedding -> indexing -> retrieval evaluation -> collection release

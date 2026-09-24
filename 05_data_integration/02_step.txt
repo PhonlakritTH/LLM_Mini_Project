@@ -1,0 +1,20 @@
+Module: Data Integration
+Main workflow
+
+1. Receive canonical records (price, stock, benchmark, spec) with source and timestamp metadata.
+2. Validate the schema. Send invalid records to quarantine or a dead-letter queue.
+3. Normalize currency, units, part names, categories, and benchmark scales.
+4. Remove duplicates by SKU/part_id or by name and spec similarity.
+5. Handle conflicts by source priority, freshness, and confidence (e.g. manufacturer spec beats a retailer listing).
+6. Keep all original evidence even when sources disagree on price or stock.
+7. Add category, socket/chipset compatibility group, and performance tier to every part.
+8. Match each part to the current BuildRequest's budget, use case, and existing parts.
+9. Create quality flags such as missing, stale, conflicting, inferred, and out_of_stock.
+10. Build a versioned PartCatalogSnapshot for the current request.
+11. Save or cache the snapshot and send it to the Compatibility/Value Model.
+
+Main outputs
+- Clean data in one common schema
+- Features ready for compatibility and value scoring
+- Part evidence with source lineage (price, stock, benchmark)
+- A data-quality summary for the Decision Agent and Web App

@@ -1,0 +1,27 @@
+Module: Recommendation and Feedback
+Process and techniques
+
+The recommendation is the final product shown to the user. It must be clear, useful, and honest about uncertainty. The user should quickly understand whether to finalize the build, swap a component, wait for a price drop, or avoid the combination.
+
+Recommended response fields
+- action_code, compatibility_status, and confidence
+- short_summary and immediate_actions (e.g. "confirm PSU wattage before checkout")
+- primary_build and alternatives with trade-offs
+- setup_instructions and manufacturer_support_contacts
+- reasons and source citations
+- observed_at, fetched_at, and expires_at
+- limitations and degraded_services
+- request_id and version metadata
+
+Key techniques
+- Use short action sentences and place urgent steps first (e.g. a wattage warning).
+- Use alert deduplication and cooldown to reduce notification fatigue for price-drop alerts.
+- Never hide an alert when a part becomes out of stock or discontinued.
+- Classify feedback as helpful, incorrect, stale, unsafe, price issue, or source issue.
+- Sanitize, label, and review feedback before using it for model training.
+- Measure safety metrics such as incompatible-build recall, unsafe recommendation rate, and alert latency.
+- Measure user-experience metrics separately.
+- Use canary or A/B tests only for presentation changes, not for weaker safety thresholds.
+- Apply data minimization, access control, retention, export, and deletion rules to purchase history.
+
+Success means the advice is timely, supported by evidence, easy to act on, and connected to a controlled improvement process.

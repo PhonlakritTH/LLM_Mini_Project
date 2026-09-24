@@ -1,0 +1,19 @@
+Module: Decision and LLM Engine
+Process and techniques
+
+The Decision Agent and the LLM have different jobs. The Decision Agent chooses the action from tested rules and evidence. The LLM only explains that action. This design reduces hallucination and makes build decisions auditable.
+
+Key techniques
+- Store decision rules in a versioned decision table (budget bands, wattage margins, socket/chipset match).
+- Test every threshold boundary and rule combination.
+- Use monotonic safety: an incompatible or unsafe combination (e.g. insufficient PSU) must not be finalized without an approved override rule.
+- Give the LLM only validated evidence.
+- Use structured output for summary, reasons, instructions, citations, and uncertainty.
+- Use low temperature and fixed token limits.
+- Check every citation and number after generation.
+- Confirm that the LLM did not change the locked action code.
+- Separate retrieved text (retailer descriptions, spec pages) from system instructions to reduce prompt injection risk.
+- Never send secrets or unnecessary personal or payment data to the LLM.
+- Test with golden scenarios and red-team cases, including conflicting prices, fake stock data, and malicious spec text.
+
+Save an audit trace with input versions, rules fired, selected action, evidence IDs, and validation results. Do not store personal or payment data unless it is required.

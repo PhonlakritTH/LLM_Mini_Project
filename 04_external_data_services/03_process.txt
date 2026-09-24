@@ -1,0 +1,18 @@
+Module: External Data Services
+Process and techniques
+
+This module hides differences between external providers. Each connector converts its provider format into one shared format. Business logic should not depend on a provider-specific response.
+
+Key techniques
+- Give each connector the same interface and error contract.
+- Keep real provider samples as regression-test fixtures.
+- Set separate connection, read, and total timeouts.
+- Retry only 408, 429, and temporary 5xx errors. Follow the Retry-After header.
+- Use circuit breakers and backup providers.
+- Use different cache times for prices, stock status, and benchmark scores (prices change fast, benchmarks change slowly).
+- Calculate a quality score from freshness, coverage, and completeness.
+- Use part_id and category indexes for fast searches, then check exact spec fields.
+- Store raw responses only when the license and retention policy allow it.
+- Monitor quota, latency, errors, schema changes, and disagreement between providers (e.g. two retailers quoting very different prices for the same SKU).
+
+Official manufacturer specs should have higher priority than general retailer descriptions. Every record must keep its provenance so the final answer can show where the information came from.

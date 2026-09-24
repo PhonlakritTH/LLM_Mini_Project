@@ -1,0 +1,20 @@
+Module: External Data Services
+Main workflow
+
+1. Receive a standard query with part category, budget range, brand, and requested fields.
+2. Select a provider by retailer coverage, freshness, quota, and current health.
+3. Check the cache using part_id, retailer, currency, and schema version.
+4. Call price, stock, and benchmark providers in parallel.
+5. Check the HTTP status, signature when available, schema, unit, and timestamp.
+6. Convert each provider response into a canonical record.
+7. Convert currency, units, and benchmark scales to a common format (THB, watts, a common performance index).
+8. Remove duplicate listings for the same part across retailers.
+9. Attach source, fetched_at, observed_at, and expires_at to every record.
+10. If the main provider fails, use a backup provider or clearly marked stale cache.
+11. Send validated data to Data Integration without choosing the final build.
+
+Main outputs
+- PriceListing and PriceHistory
+- StockStatus and RestockEstimate
+- BenchmarkScore and PerformanceIndex
+- ProviderHealth and DataQuality metadata
