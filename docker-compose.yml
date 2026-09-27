@@ -1,0 +1,58 @@
+# Orchestrates all 8 services. Ports match each module's Dockerfile.
+# For local dev without Docker, run each service with `uvicorn app.main:app --port <port>` instead.
+services:
+  web_app:
+    build: ./01_web_app
+    ports: ["3000:3000"]
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://api_backend:8000
+    depends_on: [api_backend]
+
+  api_backend:
+    build: ./02_api_backend
+    ports: ["8000:8000"]
+    env_file: ./02_api_backend/.env.example
+    environment:
+      AGENT_SERVICE_URL: http://pc_build_agent:8100
+    depends_on: [pc_build_agent]
+
+  pc_build_agent:
+    build: ./03_pc_build_ai_agent
+    ports: ["8100:8100"]
+    env_file: ./03_pc_build_ai_agent/.env.example
+    environment:
+      PRICE_SERVICE_URL: http://external_data:8200
+      STOCK_SERVICE_URL: http://external_data:8200
+      BENCHMARK_SERVICE_URL: http://external_data:8200
+      RAG_SERVICE_URL: http://compat_knowledge:8400
+      ALTERNATIVES_SERVICE_URL: http://compat_knowledge:8400
+    depends_on: [external_data, data_integration, compat_knowledge, decision_llm]
+
+  external_data:
+    build: ./04_external_data_services
+    ports: ["8200:8200"]
+    env_file: ./04_external_data_services/.env.example
+
+  data_integration:
+    build: ./05_data_integration
+    ports: ["8300:8300"]
+    env_file: ./05_data_integration/.env.example
+    depends_on: [external_data]
+
+  compat_knowledge:
+    build: ./06_compatibility_knowledge_services
+    ports: ["8400:8400"]
+    env_file: ./06_compatibility_knowledge_services/.env.example
+    depends_on: [data_integration]
+
+  decision_llm:
+    build: ./07_decision_llm_engine
+    ports: ["8500:8500"]
+    env_file: ./07_decision_llm_engine/.env.example
+    depends_on: [compat_knowledge]
+
+  recommendation_feedback:
+    build: ./08_recommendation_feedback
+    ports: ["8600:8600"]
+    env_file: ./08_recommendation_feedback/.env.example
+    depends_on: [decision_llm]

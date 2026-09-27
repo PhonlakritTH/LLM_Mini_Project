@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+pydantic-settings
+jsonschema
+jinja2
+httpx
+tenacity
+pytest
+pytest-asyncio
+hypothesis

@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+pydantic-settings
+jsonschema
+httpx
+pytest
+pytest-asyncio
