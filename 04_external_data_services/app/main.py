@@ -4,7 +4,7 @@ from fastapi import FastAPI, Header, HTTPException
 from .config import settings
 from .models import (QueryRequest, QueryResponse, PriceListing, StockStatus, BenchmarkScore, SpecRecord,
                       ProviderHealth, DataQuality, now_iso)
-from .providers import PricePrimary, PriceBackup, StockPrimary, BenchmarkPrimary, SpecPrimary, ProviderError, with_retry
+from .providers import PricePrimary, StockPrimary, BenchmarkPrimary, SpecPrimary, ProviderError, with_retry
 from .cache import cache
 from . import breaker
 from .quality import performance_index, quality_score
@@ -12,21 +12,22 @@ from .quality import performance_index, quality_score
 app = FastAPI(title="External Data Services", version="1.0")
 
 async def _price(part_ids: list[str]) -> tuple[list[PriceListing], ProviderHealth, bool]:
-    for connector, name in ((PricePrimary("price_primary"), "price_primary"), (PriceBackup("price_backup"), "price_backup")):
-        if breaker.is_open(name): continue
-        try:
-            r = await with_retry(lambda: connector.call(part_ids), name)
-            breaker.record(name, True)
-            fetched = now_iso()
-            listings = [PriceListing(part_id=pid, retailer=v["retailer"], price=v["price"], discount_pct=v["discount_pct"],
-                                     source=name, fetched_at=fetched, observed_at=fetched,
-                                     expires_at=(datetime.now(timezone.utc) + timedelta(seconds=settings.cache_ttl_price)).isoformat())
-                        for pid, v in r["data"].items()]
-            return listings, ProviderHealth(provider=name, healthy=True, latency_ms=r["latency_ms"], breaker_open=False), name == "price_backup"
-        except ProviderError as e:
-            breaker.record(name, False)
-            last = ProviderHealth(provider=name, healthy=False, latency_ms=0, breaker_open=breaker.is_open(name), last_error=str(e))
-    return [], last, True  # both failed -> caller may fall back to stale cache
+    name = PricePrimary.name
+    if breaker.is_open(name):
+        return [], ProviderHealth(provider=name, healthy=False, latency_ms=0, breaker_open=True), False
+    try:
+        r = await with_retry(lambda: PricePrimary().call(part_ids), name)
+        breaker.record(name, True)
+        fetched = now_iso()
+        listings = [PriceListing(part_id=pid, retailer=v["retailer"], price=v["price"], product_url=v.get("product_url"),
+                                 discount_pct=v["discount_pct"], source=name, fetched_at=fetched, observed_at=fetched,
+                                 expires_at=(datetime.now(timezone.utc) + timedelta(seconds=settings.cache_ttl_price)).isoformat())
+                    for pid, v in r["data"].items()]
+        return listings, ProviderHealth(provider=name, healthy=True, latency_ms=r["latency_ms"], breaker_open=False), False
+    except ProviderError as e:
+        breaker.record(name, False)
+        health = ProviderHealth(provider=name, healthy=False, latency_ms=0, breaker_open=breaker.is_open(name), last_error=str(e))
+        return [], health, False
 
 async def _stock(part_ids):
     name = "stock_primary"
@@ -61,13 +62,16 @@ async def _benchmark(part_ids):
 
 async def _spec(part_ids):
     name = "spec_primary"
-    r = await with_retry(lambda: SpecPrimary(name).call(part_ids), name)
-    fetched = now_iso()
-    out = [SpecRecord(part_id=pid, socket=v.get("socket"), wattage_draw=v.get("wattage_draw"), authority="manufacturer",
-                      source=name, fetched_at=fetched, observed_at=fetched,
-                      expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat())
-           for pid, v in r["data"].items()]
-    return out, ProviderHealth(provider=name, healthy=True, latency_ms=r["latency_ms"], breaker_open=False)
+    try:
+        r = await with_retry(lambda: SpecPrimary(name).call(part_ids), name)
+        fetched = now_iso()
+        out = [SpecRecord(part_id=pid, socket=v.get("socket"), wattage_draw=v.get("wattage_draw"), authority="manufacturer",
+                          source=name, fetched_at=fetched, observed_at=fetched,
+                          expires_at=(datetime.now(timezone.utc) + timedelta(days=30)).isoformat())
+               for pid, v in r["data"].items()]
+        return out, ProviderHealth(provider=name, healthy=True, latency_ms=r["latency_ms"], breaker_open=False)
+    except ProviderError as e:
+        return [], ProviderHealth(provider=name, healthy=False, latency_ms=0, breaker_open=False, last_error=str(e))
 
 @app.post("/v1/external/query", response_model=QueryResponse)
 async def query(req: QueryRequest, x_internal_token: str = Header(default="")):

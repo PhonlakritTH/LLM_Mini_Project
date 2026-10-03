@@ -23,21 +23,26 @@ class BuildRequest(BaseModel):
 class Part(BaseModel):
     type: str
     name: str
-    price: int
+    price: Optional[int] = None
     in_stock: Optional[bool] = None   # None = unknown (service degraded)
-    source: str
+    source: Optional[str] = None
+    product_url: Optional[str] = None
+    owned: bool = False
 
 class BuildResponse(BaseModel):
+    status: Literal["complete", "needs_info", "degraded", "budget_exhausted"] = "complete"
+    questions: list[str] = []
     recommendation_code: Literal["finalize_build", "swap_component", "wait_for_price_drop", "avoid_combination"]
     compatibility_status: Literal["compatible", "warning", "incompatible"]
-    confidence: float
+    confidence: Optional[float] = None
     summary: str
     reasons: list[str]
     conflicts: list[str] = []
     suggested_fix: Optional[str] = None
     parts_list: list[Part]
-    price_breakdown: dict[str, int]
-    benchmark_estimate: dict[str, float]
+    price_breakdown: dict[str, Optional[int]]
+    benchmark_estimate: Optional[dict[str, float]] = None
+    data_quality: dict = {}
     sources: list[str]
     partial_result: bool = False
     degraded_services: list[str] = []

@@ -1,53 +1,82 @@
-# Running the full pc-spec-builder stack
+# Run the PC Spec Builder
 
-Each module 02-08 is a standalone FastAPI service; 01 is the Next.js web app.
-This build stage wires every service together with mocked external calls
-(no real Postgres/Redis/Kafka/LLM key needed) so the whole flow runs and
-is testable end-to-end without paid dependencies.
+The active website flow uses Modules 01–04 only. Modules 05–08 can run independently, but are not yet called by the website/agent path. Current capability details and priorities are in [README.md](README.md).
 
-## Quick start (Docker)
-    docker compose up -d      # or: make up
-    open http://localhost:3000
+## Requirements
 
-## Quick start (no Docker, one terminal per service)
-    (cd 01_web_app && npm install && cp .env.example .env.local && npm run dev)              # :3000
-    (cd 02_api_backend && pip install -r requirements.txt && cp .env.example .env && uvicorn app.main:app --port 8000 --reload)
-    (cd 03_pc_build_ai_agent && pip install -r requirements.txt && cp .env.example .env && uvicorn app.main:app --port 8100 --reload)
-    (cd 04_external_data_services && pip install -r requirements.txt && cp .env.example .env && uvicorn app.main:app --port 8200 --reload)
-    (cd 05_data_integration && pip install -r requirements.txt && cp .env.example .env && uvicorn app.main:app --port 8300 --reload)
-    (cd 06_compatibility_knowledge_services && pip install -r requirements.txt && cp .env.example .env && uvicorn app.main:app --port 8400 --reload)
-    (cd 07_decision_llm_engine && pip install -r requirements.txt && cp .env.example .env && uvicorn app.main:app --port 8500 --reload)
-    (cd 08_recommendation_feedback && pip install -r requirements.txt && cp .env.example .env && uvicorn app.main:app --port 8600 --reload)
+- Node.js 20.9 or newer and npm
+- Python 3.12 (or a compatible version for the service requirements)
+- Docker Desktop/Engine only for the Docker route
+- A SerpApi key for live Google Shopping price lookup
 
-## Run all tests
-    make test
+Without `SERPAPI_API_KEY`, the website still runs but reports price data as unavailable. Stock, benchmarks, and manufacturer specs remain unavailable until providers are implemented.
 
-## Port map
-| Module | Service                     | Port |
-|--------|------------------------------|------|
-| 01     | web_app (Next.js)            | 3000 |
-| 02     | api_backend                  | 8000 |
-| 03     | pc_build_agent                | 8100 |
-| 04     | external_data_services        | 8200 |
-| 05     | data_integration               | 8300 |
-| 06     | compat_knowledge_services      | 8400 |
-| 07     | decision_llm_engine             | 8500 |
-| 08     | recommendation_feedback         | 8600 |
+## Docker
 
-## Data flow (matches the README diagram)
-    Web App -> API/Backend -> PC Build AI Agent
-      -> [parallel] External Data Services (price/stock/benchmark)
-      -> Data Integration (canonical PartCatalogSnapshot)
-      -> Compatibility & Knowledge Services (compat score + RAG + alternatives)
-      -> Decision & LLM Engine (locked action_code + explanation)
-      -> Recommendation & Feedback (final response shown in Web App; feedback loop)
+Copy the root `.env.example` to `.env`, add the key, and keep `.env` private:
 
-## Known simplifications (documented, not hidden)
-- Postgres/Redis/Kafka are replaced with in-memory stores everywhere (clearly labeled "stand-in for X" in code comments).
-  Swapping in real infra means changing only the storage layer, not the service contracts.
-- Module 03/04/06 external calls (LLM planner, retailer APIs, embeddings) use built-in deterministic mocks
-  when their *_SERVICE_URL / *_API_KEY env vars are empty, so the whole system runs offline.
-- Module 07's `LLM_API_KEY` is empty by default, so it always uses the fixed fallback explanation template
-  (this is by design in the module 07 spec: "Use a fixed fallback template when the LLM is unavailable").
-- End-to-end wiring between services (02 calling 03, 03 calling 04-06, decision calling 08) uses the *_SERVICE_URL
-  env vars set in docker-compose.yml; when run without Docker, set them by hand or keep them empty to use mocks.
+```text
+SERPAPI_API_KEY=your-private-key
+```
+
+Start Docker Engine, then run from the repository root:
+
+```powershell
+docker compose up --build -d
+```
+
+Open `http://localhost:3000`. Stop the stack with `docker compose down`.
+
+## Local processes (Windows PowerShell)
+
+First copy each service's `.env.example` to `.env` and configure:
+
+- `04_external_data_services/.env`: `SERPAPI_API_KEY` and `INTERNAL_TOKEN=dev-internal`.
+- `03_pc_build_ai_agent/.env`: `PRICE_SERVICE_URL`, `STOCK_SERVICE_URL`, and `BENCHMARK_SERVICE_URL` set to `http://localhost:8200`; set the same internal token.
+- `02_api_backend/.env`: `AGENT_SERVICE_URL=http://localhost:8100` and the same internal token.
+- Module 01 uses `http://localhost:8000` by default; set `NEXT_PUBLIC_API_BASE_URL` in `.env.local` only when changing that address.
+
+Start each command in its own terminal, in this order:
+
+```powershell
+Set-Location 04_external_data_services
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8200 --reload
+```
+
+```powershell
+Set-Location 03_pc_build_ai_agent
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8100 --reload
+```
+
+```powershell
+Set-Location 02_api_backend
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8000 --reload
+```
+
+```powershell
+Set-Location 01_web_app
+npm ci
+npm run dev
+```
+
+Open `http://localhost:3000`. For Modules 05–08 standalone startup instructions, see their module READMEs.
+
+## Ports and endpoints
+
+| Module | Port | Main endpoint |
+|---|---:|---|
+| 01 Web App | 3000 | Browser UI |
+| 02 API Backend | 8000 | `POST /v1/builder/recommendations` |
+| 03 PC Build AI Agent | 8100 | `POST /v1/agent/run` |
+| 04 External Data Services | 8200 | `POST /v1/external/query` |
+| 05 Data Integration | 8300 | `POST /v1/integration/snapshot` |
+| 06 Compatibility/Knowledge | 8400 | `POST /v1/knowledge/assess` |
+| 07 Decision/LLM | 8500 | `POST /v1/decision/evaluate` |
+| 08 Recommendation/Feedback | 8600 | `POST /v1/recommendation/build` |
+
+## Tests
+
+Run `python -m pytest -q` from each Python module. Run `npm run build` and `npm audit` from `01_web_app`. Current test counts and the known Module 05 freshness failure are recorded in the root [README.md](README.md).

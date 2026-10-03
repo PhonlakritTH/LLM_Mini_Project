@@ -9,12 +9,17 @@ def check_compatibility(parts: list[dict], constraints: dict) -> dict:
         elif cpu["socket"] != mb["socket"]:
             conflicts.append(f"CPU socket {cpu['socket']} does not match motherboard socket {mb['socket']}.")
     cpu_w = 125 if cpu else 0
-    gpu_w = (by.get("gpu") or {}).get("watts") or 0
-    need = cpu_w + gpu_w + 150
+    gpu = by.get("gpu")
+    gpu_w = gpu.get("watts") if gpu else 0
+    need = cpu_w + (gpu_w or 0) + 150
+    if gpu and gpu_w is None:
+        unknown.append(f"Power draw of {gpu['name']} is unknown.")
     psu = by.get("psu", {})
     if psu.get("wattage"):
         if psu["wattage"] < need: conflicts.append(f"PSU {psu['wattage']}W is below the required {need}W.")
         elif psu["wattage"] < need * 1.2: warnings.append(f"PSU {psu['wattage']}W leaves under 20% headroom over {need}W.")
+    elif "psu" in by:
+        unknown.append(f"Wattage of {psu['name']} is unknown.")
     if constraints.get("max_wattage") and need > constraints["max_wattage"]:
         warnings.append(f"Estimated draw {need}W exceeds your {constraints['max_wattage']}W limit.")
     if constraints.get("case_form_factor") == "ITX" and mb and mb.get("form_factor", "mATX") != "ITX":

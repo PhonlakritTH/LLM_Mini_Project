@@ -3,7 +3,7 @@ import asyncio, re
 from datetime import datetime, timezone
 from .config import settings
 from .state import AgentState, AgentRequest, AgentResult, BudgetExceeded
-from .tools import call_tool, ToolFailed, ToolDenied, PRICES
+from .tools import call_tool, ToolFailed, ToolDenied
 from .compat import check_compatibility
 
 CHECKPOINTS: dict[str, dict] = {}   # swap for Redis/PostgreSQL
@@ -60,8 +60,6 @@ async def plan(s: AgentState):
     # an owned part replaces the candidate entirely; unknown fields stay unknown (never guessed)
     s.parts = [{**{k: v for k, v in owned[c["type"]].items() if v is not None}, "owned": True} if c["type"] in owned
                else {**c, "owned": False} for c in cand]
-    for p in s.parts:  # keep gpu watts for owned GPUs we recognise
-        if p["type"] == "gpu" and p["owned"] and not p.get("watts"): p["watts"] = 200
     return "fetch"
 
 async def fetch(s: AgentState):
@@ -74,15 +72,20 @@ async def fetch(s: AgentState):
         if isinstance(res, (ToolFailed, ToolDenied)):
             s.errors.append(str(res)); s.degraded_services.append(name)
         elif isinstance(res, Exception): raise res
-        else: s.observations[name] = res
+        else:
+            s.observations[name] = res
+            if res.get("missing"):
+                s.degraded_services.append(name)
     return "integrate"
 
 async def integrate(s: AgentState):
     prices = s.observations.get("price", {}).get("prices", {})
+    links = s.observations.get("price", {}).get("links", {})
     stock = s.observations.get("stock", {}).get("stock", {})
     for p in s.parts:
         p["price"] = 0 if p["owned"] else prices.get(p["name"])
         p["in_stock"] = True if p["owned"] else stock.get(p["name"])   # None = unknown
+        p["product_url"] = links.get(p["name"])
     priced = [p["price"] for p in s.parts if p["price"] is not None]
     s.data_quality["total_price"] = sum(priced) if "price" not in s.degraded_services else None
     as_of = s.observations.get("price", {}).get("as_of")
@@ -98,17 +101,9 @@ async def compatibility(s: AgentState):
     return "alternatives_rag"
 
 async def alternatives_rag(s: AgentState):
-    gpu = next(p for p in s.parts if p["type"] == "gpu")
-    total, budget = s.data_quality.get("total_price"), s.slots["budget"]
-    jobs = {"component_rag": {"gpu": gpu["name"]}}
-    if total is not None and budget and total > budget and not gpu["owned"]: jobs["alternatives"] = {"gpu": gpu["name"]}
-    results = await asyncio.gather(*(call_tool(s, k, v) for k, v in jobs.items()), return_exceptions=True)
-    for name, res in zip(jobs, results):
-        if isinstance(res, BudgetExceeded): raise res
-        if isinstance(res, Exception): s.errors.append(str(res)); s.degraded_services.append(name)
-        elif name == "alternatives": s.alternatives = res["alternatives"]
-        else:  # untrusted text: kept as data, length-limited, flagged
-            s.evidence += [{"text": re.sub(r"[\x00-\x1f]", " ", n.get("text", ""))[:300], "source": str(n.get("source", ""))[:60], "untrusted": True} for n in res["notes"]]
+    s.alternatives = []
+    s.evidence = []
+    s.degraded_services.append("knowledge_services")
     return "quality"
 
 async def quality(s: AgentState):

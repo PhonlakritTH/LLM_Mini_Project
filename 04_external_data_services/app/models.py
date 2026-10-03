@@ -16,6 +16,7 @@ class PriceListing(Provenance):
     retailer: str
     currency: Literal["THB"] = "THB"
     price: int
+    product_url: Optional[str] = None
     discount_pct: float = 0.0
     bundle_note: Optional[str] = None
 

@@ -1,111 +1,48 @@
-# AI PC Spec Builder — Mini Project (Modules 01–08)
+# AI PC Spec Builder
 
-Build an intelligent PC-build assistant that analyzes a user's budget, use case, and existing parts, checks live prices, stock, and benchmarks, and produces an explainable, compatibility-checked build recommendation.
+**Repository status: 2026-10-03.** The website and request path are implemented through live price search and deterministic compatibility checks. The full eight-module architecture is not yet integrated; this README distinguishes the running path from standalone services and planned work.
 
-The system combines an AI agent, external price/stock/benchmark APIs, data integration, a local compatibility/value model, component-focused RAG, alternative-build analysis, deterministic decision rules, and an LLM-generated explanation inside a Docker-based architecture.
+## Current status
 
-----
+The active request path is:
 
-# Structure
+`01_web_app -> 02_api_backend -> 03_pc_build_ai_agent -> 04_external_data_services -> SerpApi Google Shopping`
 
-```text
-pc-spec-builder/
-│
-├── 01_web_app/                              # User-facing web and mobile interface
-│   ├── 01_env.txt
-│   ├── 02_step.txt
-│   └── 03_process.txt
-│
-├── 02_api_backend/                          # Secure API and request-management layer
-│   ├── 01_env.txt
-│   ├── 02_step.txt
-│   └── 03_process.txt
-│
-├── 03_pc_build_ai_agent/                    # Agent orchestration and tool selection
-│   ├── 01_env.txt
-│   ├── 02_step.txt
-│   └── 03_process.txt
-│
-├── 04_external_data_services/               # Real-time price, stock, and benchmark adapters
-│   ├── 01_env.txt
-│   ├── 02_step.txt
-│   └── 03_process.txt
-│
-├── 05_data_integration/                     # Multi-source part-catalog processing
-│   ├── 01_env.txt
-│   ├── 02_step.txt
-│   └── 03_process.txt
-│
-├── 06_compatibility_knowledge_services/     # Compatibility/value prediction, Component RAG, alternative builds
-│   ├── 01_env.txt
-│   ├── 02_step.txt
-│   └── 03_process.txt
-│
-├── 07_decision_llm_engine/                  # Build decision and natural-language explanation
-│   ├── 01_env.txt
-│   ├── 02_step.txt
-│   └── 03_process.txt
-│
-└── 08_recommendation_feedback/              # Final recommendation, alerts, and continuous feedback loop
-    ├── 01_env.txt
-    ├── 02_step.txt
-    └── 03_process.txt
-```
+The app displays candidate parts, matched THB prices, and retailer links when available. Without `SERPAPI_API_KEY`, or when no listing matches a part, it preserves unknown values and returns a degraded recommendation rather than fake prices. Stock, benchmark, and manufacturer-spec data have no live provider configured. The active agent does not yet call Modules 05–08.
 
-# Core Recommendations
+## Module status
 
-The system produces one primary action based on the assessed compatibility, price/stock conditions, benchmark performance, and available alternatives:
+| Module | Current status |
+|---|---|
+| [01 Web App](01_web_app/README.md) | Active form/results UI; handles unknown and partial data. |
+| [02 API Backend](02_api_backend/README.md) | Active auth, rate limit, request forwarding, and response adaptation. Development auth/state are in-memory. |
+| [03 PC Build AI Agent](03_pc_build_ai_agent/README.md) | Active deterministic planner/checks; fixed candidate list; calls Module 04. |
+| [04 External Data Services](04_external_data_services/README.md) | Live price search through SerpApi; stock/benchmark/spec providers unavailable. |
+| [05 Data Integration](05_data_integration/README.md) | Standalone snapshot pipeline; not in the active flow. One freshness-sensitive test currently fails. |
+| [06 Compatibility and Knowledge](06_compatibility_knowledge_services/README.md) | Standalone rules service; RAG corpus and alternatives are sample in-code data; not in the active flow. |
+| [07 Decision and LLM Engine](07_decision_llm_engine/README.md) | Standalone deterministic rules; LLM client is still a placeholder; not in the active flow. |
+| [08 Recommendation and Feedback](08_recommendation_feedback/README.md) | Standalone formatter/feedback service with in-memory state; not in the active flow. |
 
-- **Finalize build** — Parts are compatible, within budget, and in stock.
-- **Swap component** — A clearly better or cheaper compatible alternative is available.
-- **Wait for price drop** — Price is high relative to trend, or a part is temporarily out of stock with no good alternative.
-- **Avoid this combination** — The parts are incompatible (e.g. wrong socket, insufficient PSU) with no safe alternative.
-- **Setup instructions** — Verification steps (e.g. confirm PSU wattage before checkout) and manufacturer support contacts.
+## What to do next
 
-Every recommendation should include its compatibility status, confidence, reasons, alternative parts, source citations, data freshness, and any unavailable or degraded services.
+1. Add a SerpApi key locally and verify price matches, source links, and query limits against Thai listings.
+2. Choose licensed live providers for stock, benchmarks, and manufacturer specs; keep each unavailable until implemented and validated.
+3. Fix Module 05's stale test fixture, then wire its snapshots into the agent.
+4. Replace Module 06 sample documents/catalog with verified, versioned sources and connect its assessment, RAG, and alternatives.
+5. Implement the Module 07 LLM client (a configured key currently does not make an LLM request), then connect Modules 07 and 08 to the active response flow.
+6. Before public deployment, replace development-token auth and in-memory rate-limit/idempotency/feedback state with production identity and persistent stores.
 
-----
+## Verification snapshot
 
-## How to Run
+| Area | Last checked result |
+|---|---|
+| Module 02 | 5 tests passed |
+| Module 03 | 11 tests passed |
+| Module 04 | 5 tests passed |
+| Module 05 | 5 passed, 1 failed: fixture dated 2026-09-27 is older than the 900-second price freshness limit on the check date. |
+| Module 06 | 7 tests passed |
+| Module 07 | 9 tests passed |
+| Module 08 | 10 tests passed |
+| Web app | Production build passed; `npm audit` reported 0 vulnerabilities. |
 
-This repository is currently at the **design and documentation stage**. Each `01-08` folder contains planning files, not runnable source code yet.
-
-Once implemented, use **Docker Compose** as the main system orchestrator for managing and connecting all services.
-
-* **`docker-compose.yml`** — defines and connects all services.
-* **`Dockerfile`** — defines the environment and dependencies for each service.
-* **`.env`** — stores API keys and private configuration.
-* **Docker Network** — enables communication between containers.
-* **`Makefile`** *(optional)* — provides shortcuts such as `make up`, `make down`, `make logs`, and `make rebuild`.
-
-Start the complete system with:
-
-```bash
-docker compose up -d
-```
-
-**Docker Compose is the main orchestrator for the complete system.**
-
-## Summary
-
-This project is designed as an end-to-end architecture for an explainable, real-time PC-build assistant. **Modules 01–03** manage user interaction, secure API access, intent understanding, planning, and AI-agent orchestration. **Modules 04–05** collect and normalize live price, stock, and benchmark data into a versioned part-catalog snapshot.
-
-**Module 06** evaluates build compatibility and value with a local ML/DL model, retrieves verified component knowledge through Component RAG, and identifies alternative parts. **Module 07** applies deterministic decision rules to select the final action before using an LLM to produce a grounded natural-language explanation. **Module 08** delivers the recommendation, supports follow-up questions and build updates, and captures governed feedback for evaluation and future system improvements.
-
-The architecture keeps safety-critical decisions (compatibility, wattage, budget) separate from free-form LLM generation. Official spec sheets, part availability, model versions, source provenance, data freshness, fallback behavior, and decision traces remain visible and auditable throughout the workflow.
-
-----
-
-## Concept mapping (from the original travel-assistant version)
-
-| Original (Travel Assistant)                     | Adapted (PC Spec Builder)                                          |
-|--------------------------------------------------|----------------------------------------------------------------------|
-| TravelRequest                                     | BuildRequest (budget, use_case, preferred_brand, existing_parts)     |
-| risk_level                                        | compatibility_status                                                  |
-| Weather / Transport / Disaster API                | Price API / Stock-Availability API / Benchmark API                   |
-| Route / RouteCandidate                            | Alternative build / component swap suggestion                        |
-| Local Risk Model                                  | Compatibility/Value Model                                             |
-| Disaster RAG                                      | Component RAG (specs, manuals, driver requirements)                  |
-| Decision Agent                                    | Build Decision Agent (budget + performance + compatibility rules)    |
-| travel normally / change route / delay / avoid    | finalize build / swap component / wait for price drop / avoid combination |
-| emergency instructions / official contacts        | setup/verification steps / manufacturer support contacts             |
+Docker Compose configuration validates, but Docker Engine was unavailable during the last startup attempt. Modules 02–04 and the website were smoke-tested as local processes. See [README_RUN.md](README_RUN.md) for startup instructions and [README_01_02.md](README_01_02.md) for the web/API quick reference.

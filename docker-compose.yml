@@ -5,7 +5,7 @@ services:
     build: ./01_web_app
     ports: ["3000:3000"]
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://api_backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
     depends_on: [api_backend]
 
   api_backend:
@@ -14,6 +14,7 @@ services:
     env_file: ./02_api_backend/.env.example
     environment:
       AGENT_SERVICE_URL: http://pc_build_agent:8100
+      INTERNAL_TOKEN: dev-internal
     depends_on: [pc_build_agent]
 
   pc_build_agent:
@@ -21,6 +22,7 @@ services:
     ports: ["8100:8100"]
     env_file: ./03_pc_build_ai_agent/.env.example
     environment:
+      INTERNAL_TOKEN: dev-internal
       PRICE_SERVICE_URL: http://external_data:8200
       STOCK_SERVICE_URL: http://external_data:8200
       BENCHMARK_SERVICE_URL: http://external_data:8200
@@ -32,6 +34,9 @@ services:
     build: ./04_external_data_services
     ports: ["8200:8200"]
     env_file: ./04_external_data_services/.env.example
+    environment:
+      INTERNAL_TOKEN: dev-internal
+      SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
 
   data_integration:
     build: ./05_data_integration

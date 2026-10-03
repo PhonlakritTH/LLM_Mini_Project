@@ -19,6 +19,5 @@ class Settings(BaseSettings):
     policy_version: str = "policy-2026-09"
     price_max_age_seconds: int = 900
     internal_token: str = "dev-internal"
-    mock_fail: str = ""          # e.g. "stock,benchmark" to simulate outages
 
 settings = Settings()

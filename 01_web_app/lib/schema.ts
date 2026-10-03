@@ -10,6 +10,8 @@ export const formSchema = z.object({
     type: z.enum(PART_TYPES),
     name: z.string().trim().min(1, "Name required").max(80),
     socket: z.string().trim().max(20).optional(),
+    wattage: z.preprocess((value) => value === "" || value == null ? undefined : Number(value),
+      z.number().int().min(100).max(2000).optional()),
   })).max(10),
   question: z.string().max(500),
 });
