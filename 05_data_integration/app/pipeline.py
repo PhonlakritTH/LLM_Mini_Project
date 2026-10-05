@@ -36,6 +36,15 @@ def build_snapshot(req) -> PartCatalogSnapshot:
         valid.append(rec)
 
     by_part: dict[str, dict] = {}
+    for part in req.requested_parts:
+        part_id = part["part_id"]
+        by_part[part_id] = {key: part.get(key) for key in
+                    ("category", "socket", "chipset", "form_factor", "wattage_draw")}
+        by_part[part_id]["owned"] = bool(part.get("owned", False))
+        by_part[part_id]["lineage"] = {}
+        if part.get("owned"):
+            by_part[part_id].update(price=0, in_stock=True, owned=True)
+
     flags: list[QualityFlag] = []
     for rec in valid:
         p = by_part.setdefault(rec.part_id, {"lineage": {}})
@@ -61,24 +70,27 @@ def build_snapshot(req) -> PartCatalogSnapshot:
                     if rec.authority == "manufacturer" or f not in p:
                         p[f] = rec.fields[f]
             p["lineage"].setdefault("spec", []).append(rec.source)
-        p["category"] = CATEGORY.get(rec.part_id.split()[0].lower(), "part")
+        p["category"] = p.get("category") or CATEGORY.get(rec.part_id.split()[0].lower(), "part")
 
     parts: list[PartRecord] = []
-    requested_ids = {r.part_id for r in valid}
+    requested_ids = set(by_part) | {r.part_id for r in valid}
     for pid in requested_ids:
         d = by_part.get(pid, {})
-        missing_price = "price" not in d.get("lineage", {})
+        owned = d.get("owned", False)
+        missing_price = not owned and "price" not in d.get("lineage", {})
         if missing_price: flags.append(QualityFlag(part_id=pid, flag="missing", detail="No price record available."))
         socket, form_factor, watts = d.get("socket"), d.get("form_factor"), d.get("wattage_draw")
         group = "|".join(filter(None, [socket, form_factor])) or None
-        degraded = missing_price or d.get("in_stock") is None or any(f.part_id == pid and f.flag in ("stale", "conflicting") for f in flags)
+        degraded = not owned and (missing_price or d.get("in_stock") is None or
+                    any(f.part_id == pid and f.flag in ("stale", "conflicting") for f in flags))
         parts.append(PartRecord(part_id=pid, category=d.get("category", "part"), price=d.get("price"), price_thb=d.get("price"),
                                 in_stock=d.get("in_stock"), performance_index=d.get("performance_index"),
                                 socket=socket, chipset=d.get("chipset"), form_factor=form_factor, wattage_draw=watts,
                                 performance_tier=_tier(d.get("performance_index")), compatibility_group=group,
-                                degraded=degraded, lineage=d.get("lineage", {})))
+                                owned=owned, degraded=degraded, lineage=d.get("lineage", {})))
 
-    coverage = sum(1 for p in parts if p.price is not None) / len(parts) if parts else 1.0
+    purchasable = [part for part in parts if not part.owned]
+    coverage = sum(1 for part in purchasable if part.price is not None) / len(purchasable) if purchasable else 1.0
     completeness = sum(1 for p in parts if p.socket or p.category not in ("cpu", "motherboard")) / len(parts) if parts else 1.0
     freshness_ok = not any(f.flag == "stale" for f in flags)
     score = round(settings.quality_weight_freshness * (1.0 if freshness_ok else 0.0) +

@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     rate_limit_per_min: int = 20
     log_level: str = "INFO"
     agent_service_url: str = "http://localhost:8100"
+    data_integration_service_url: str = "http://localhost:8300"
+    knowledge_service_url: str = "http://localhost:8400"
+    decision_service_url: str = "http://localhost:8500"
+    recommendation_service_url: str = "http://localhost:8600"
     internal_token: str = "dev-internal"
 s = Settings(_env_file=".env")
 logging.basicConfig(level=s.log_level)
@@ -78,12 +82,135 @@ async def recommendations(body: BuildRequest, user: str = Depends(rate_limit),
         log.warning("agent_unavailable cid=%s error=%s", cid, type(e).__name__)
         raise ApiError(503, "RECOMMENDER_UNAVAILABLE", "The recommendation service is temporarily unavailable.") from e
 
-    result = _build_response(agent_result, body)
+    result = await _orchestrate(agent_result, body)
     result.update(request_id=body.request_id, correlation_id=cid,
                   conversation_id=agent_result.get("conversation_id") or body.conversation_id or uuid.uuid4().hex)
     if idempotency_key:
         _idem[(user, idempotency_key)] = result
     return result
+
+async def _post_service(base_url: str, path: str, payload: dict) -> dict | None:
+    if not base_url:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(f"{base_url}{path}", json=payload,
+                                         headers={"X-Internal-Token": s.internal_token})
+        response.raise_for_status()
+        return response.json()
+    except (httpx.HTTPError, ValueError) as error:
+        log.warning("downstream_unavailable path=%s error=%s", path, type(error).__name__)
+        return None
+
+def _fallback_response(agent_result: dict, body: BuildRequest, unavailable: str) -> dict:
+    result = _build_response(agent_result, body)
+    degraded = sorted(set(result.get("degraded_services", [])) | {unavailable})
+    result.update(status="degraded", partial_result=True, confidence=None, degraded_services=degraded)
+    if result.get("compatibility_status") != "incompatible":
+        result.update(recommendation_code="wait_for_price_drop",
+                      summary=f"บริการ {unavailable} ไม่พร้อม จึงยังยืนยันผลจัดสเปกไม่ได้")
+    return result
+
+async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
+    package = agent_result.get("evidence_package") or {}
+    if not package or agent_result.get("status") == "needs_info":
+        return _build_response(agent_result, body)
+
+    agent_parts = package.get("parts", [])
+    requested_parts = [{
+        "part_id": part["name"], "category": part["type"], "socket": part.get("socket"),
+        "wattage_draw": part.get("wattage") or part.get("watts"),
+        "form_factor": part.get("form_factor"), "owned": part.get("owned", False),
+    } for part in agent_parts]
+    snapshot = await _post_service(s.data_integration_service_url, "/v1/integration/snapshot", {
+        "request_id": body.request_id, "budget": body.budget, "use_case": body.use_case,
+        "existing_parts": body.existing_parts, "requested_parts": requested_parts,
+        "records": package.get("records", []),
+    })
+    if snapshot is None:
+        return _fallback_response(agent_result, body, "data_integration")
+
+    data_quality = snapshot.get("data_quality", {})
+    degraded = set(agent_result.get("degraded_services", []))
+    if data_quality.get("coverage", 0) < 1:
+        degraded.add("price")
+    if any(part.get("in_stock") is None for part in snapshot.get("parts", [])):
+        degraded.add("stock")
+    if not any(part.get("performance_index") is not None for part in snapshot.get("parts", [])):
+        degraded.add("benchmark")
+    if not data_quality.get("freshness_ok", False):
+        degraded.add("stale_data")
+
+    knowledge = await _post_service(s.knowledge_service_url, "/v1/knowledge/assess", {
+        "request_id": body.request_id, "snapshot": snapshot, "existing_parts": body.existing_parts,
+        "constraints": package.get("request_summary", {}).get("constraints", {}),
+        "question": body.question, "locale": body.locale, "budget": body.budget,
+    })
+    if knowledge is None:
+        return _fallback_response(agent_result, body, "knowledge_services")
+    degraded.update(knowledge.get("degraded_services", []))
+
+    decision = await _post_service(s.decision_service_url, "/v1/decision/evaluate", {
+        "request_id": body.request_id, "conversation_id": body.conversation_id,
+        "budget": body.budget, "parts": snapshot.get("parts", []),
+        "compatibility": knowledge.get("compatibility", {}),
+        "alternatives": knowledge.get("alternatives", {"options": []}),
+        "evidence": knowledge.get("evidence", {"passages": []}),
+        "data_quality": data_quality, "degraded_services": sorted(degraded), "locale": body.locale,
+    })
+    if decision is None:
+        return _fallback_response(agent_result, body, "decision_engine")
+
+    agent_part_by_name = {part["name"]: part for part in agent_parts}
+    decision_parts = [{
+        "type": part.get("category", "part"), "name": part.get("part_id", "Unknown part"),
+        "price": part.get("price"), "in_stock": part.get("in_stock"),
+        "owned": part.get("owned", False),
+        "product_url": agent_part_by_name.get(part.get("part_id"), {}).get("product_url"),
+        "source": agent_part_by_name.get(part.get("part_id"), {}).get("source"),
+    } for part in snapshot.get("parts", [])]
+    price_records = [record for record in package.get("records", []) if record.get("kind") == "price"]
+    price_observed_at = max((record["observed_at"] for record in price_records), default=None)
+    formatted = await _post_service(s.recommendation_service_url, "/v1/recommendation/build", {
+        "request_id": body.request_id, "conversation_id": body.conversation_id or body.request_id,
+        "locale": body.locale, "action_code": decision["action_code"],
+        "compatibility_status": decision["compatibility_status"], "confidence": decision["confidence"],
+        "escalate": decision["escalate"], "summary": decision["summary"],
+        "reasons": decision["reasons"], "immediate_actions": decision["immediate_actions"],
+        "citations": decision.get("citations", []), "parts": decision_parts,
+        "alternatives": [], "degraded_services": sorted(degraded),
+        "price_observed_at": price_observed_at, "consent_live_updates": False,
+        "versions": decision.get("versions", {}),
+    })
+    if formatted is None:
+        degraded.add("recommendation_formatter")
+
+    action = (formatted or {}).get("action_code", decision["action_code"])
+    status = (formatted or {}).get("compatibility_status", decision["compatibility_status"])
+    output_parts = (formatted or {}).get("primary_build", decision_parts)
+    required_prices = [part for part in output_parts if not part.get("owned", False)]
+    total = sum(part["price"] for part in required_prices) if all(part.get("price") is not None for part in required_prices) else None
+    return BuildResponse(
+        status="degraded" if degraded or decision.get("escalate") else "complete", questions=[],
+        recommendation_code={"FINALIZE_BUILD": "finalize_build", "SWAP_COMPONENT": "swap_component",
+                             "WAIT_FOR_PRICE_DROP": "wait_for_price_drop", "AVOID_COMBINATION": "avoid_combination"}[action],
+        compatibility_status=status, confidence=decision.get("confidence"),
+        summary=(formatted or {}).get("short_summary", decision["summary"]),
+        reasons=(formatted or {}).get("reasons", decision["reasons"]),
+        conflicts=(knowledge.get("compatibility", {}).get("reason_codes", [])
+                   if status == "incompatible" else []), suggested_fix=None,
+        parts_list=output_parts,
+        price_breakdown={part["type"]: part.get("price") for part in output_parts},
+        benchmark_estimate=package.get("benchmark"),
+        data_quality={**data_quality, "total_price": total},
+        sources=package.get("sources", []) + [f"{item['document_id']}:{item['section']}"
+            for item in (formatted or {}).get("sources", [])],
+        partial_result=bool(degraded) or bool(decision.get("escalate")),
+        degraded_services=sorted(degraded),
+        updated_at=(formatted or {}).get("fetched_at", package.get("updated_at", datetime.now(timezone.utc).isoformat())),
+        request_id=body.request_id, correlation_id="",
+        conversation_id=decision.get("conversation_id", body.conversation_id or body.request_id),
+    ).model_dump()
 
 def _build_response(agent_result: dict, body: BuildRequest) -> dict:
     package = agent_result.get("evidence_package") or {}

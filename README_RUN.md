@@ -1,6 +1,6 @@
 # Run the PC Spec Builder
 
-The active website flow uses Modules 01–04 only. Modules 05–08 can run independently, but are not yet called by the website/agent path. Current capability details and priorities are in [README.md](README.md).
+The active website request orchestrates Modules 01–08. Live prices require SerpApi; unavailable providers remain unknown and cause a degraded response. Current capability details and priorities are in [README.md](README.md).
 
 ## Requirements
 
@@ -33,7 +33,7 @@ First copy each service's `.env.example` to `.env` and configure:
 
 - `04_external_data_services/.env`: `SERPAPI_API_KEY` and `INTERNAL_TOKEN=dev-internal`.
 - `03_pc_build_ai_agent/.env`: `PRICE_SERVICE_URL`, `STOCK_SERVICE_URL`, and `BENCHMARK_SERVICE_URL` set to `http://localhost:8200`; set the same internal token.
-- `02_api_backend/.env`: `AGENT_SERVICE_URL=http://localhost:8100` and the same internal token.
+- `02_api_backend/.env`: `AGENT_SERVICE_URL=http://localhost:8100`, `DATA_INTEGRATION_SERVICE_URL=http://localhost:8300`, `KNOWLEDGE_SERVICE_URL=http://localhost:8400`, `DECISION_SERVICE_URL=http://localhost:8500`, `RECOMMENDATION_SERVICE_URL=http://localhost:8600`, and the same internal token.
 - Module 01 uses `http://localhost:8000` by default; set `NEXT_PUBLIC_API_BASE_URL` in `.env.local` only when changing that address.
 
 Start each command in its own terminal, in this order:
@@ -54,6 +54,32 @@ python -m uvicorn app.main:app --port 8100 --reload
 Set-Location 02_api_backend
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --port 8000 --reload
+```
+
+Start these downstream services in their own terminals before sending a recommendation request:
+
+```powershell
+Set-Location 05_data_integration
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8300 --reload
+```
+
+```powershell
+Set-Location 06_compatibility_knowledge_services
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8400 --reload
+```
+
+```powershell
+Set-Location 07_decision_llm_engine
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8500 --reload
+```
+
+```powershell
+Set-Location 08_recommendation_feedback
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8600 --reload
 ```
 
 ```powershell
@@ -77,6 +103,12 @@ Open `http://localhost:3000`. For Modules 05–08 standalone startup instruction
 | 07 Decision/LLM | 8500 | `POST /v1/decision/evaluate` |
 | 08 Recommendation/Feedback | 8600 | `POST /v1/recommendation/build` |
 
+## Active request flow
+
+`Web -> API -> Agent -> External Data -> Snapshot -> Compatibility -> Decision -> Recommendation Formatter`
+
+The no-key local smoke test returns `degraded`/`wait_for_price_drop`; it does not invent a price total or claim stock is verified. Sample RAG/alternative data are disabled by default.
+
 ## Tests
 
-Run `python -m pytest -q` from each Python module. Run `npm run build` and `npm audit` from `01_web_app`. Current test counts and the known Module 05 freshness failure are recorded in the root [README.md](README.md).
+Run `python -m pytest -q` separately from each Python module. Run `npm run build` and `npm audit` from `01_web_app`. Current per-module test counts are recorded in the root [README.md](README.md).

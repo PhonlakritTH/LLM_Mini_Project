@@ -31,6 +31,7 @@ class PartRecord(BaseModel):
     wattage_draw: Optional[int] = None
     performance_tier: Optional[str] = None
     compatibility_group: Optional[str] = None
+    owned: bool = False
     degraded: bool = False
     lineage: dict[str, list[str]] = {}   # field -> list of source ids that contributed
 
@@ -58,4 +59,5 @@ class IntegrationRequest(BaseModel):
     budget: Optional[int] = None
     use_case: Optional[str] = None
     existing_parts: list[dict] = []
-    records: list[RawRecord]
+    requested_parts: list[dict] = []
+    records: list[RawRecord] = []

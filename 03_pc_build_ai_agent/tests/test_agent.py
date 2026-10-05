@@ -36,7 +36,9 @@ async def test_price_tool_normalizes_external_query_and_retailer_link(monkeypatc
         def json(self):
             return {"provider_health": [{"healthy": True}], "prices": [{
                 "part_id": "Ryzen 5 7600", "price": 7590, "source": "serpapi_google_shopping",
-                "fetched_at": "2026-10-03T00:00:00Z", "product_url": "https://shop.example/item"
+                "fetched_at": "2026-10-03T00:00:00Z", "observed_at": "2026-10-03T00:00:00Z",
+                "expires_at": "2026-10-03T00:02:00Z", "product_url": "https://shop.example/item",
+                "retailer": "Example Shop"
             }]}
         def raise_for_status(self): pass
 
@@ -58,6 +60,8 @@ async def test_price_tool_normalizes_external_query_and_retailer_link(monkeypatc
     assert result["prices"] == {"Ryzen 5 7600": 7590}
     assert result["missing"] == ["RTX 4060"]
     assert result["links"]["Ryzen 5 7600"] == "https://shop.example/item"
+    assert result["retailers"]["Ryzen 5 7600"] == "Example Shop"
+    assert result["records"][0]["observed_at"] == "2026-10-03T00:00:00Z"
 
 async def test_socket_conflict():
     r = await run_agent(req(preferred_brand="amd", existing_parts=[{"type": "motherboard", "name": "Z690", "socket": "LGA1700"}]))

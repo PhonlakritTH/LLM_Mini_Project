@@ -11,7 +11,8 @@ def req(**k):
 
 def test_order_and_fields():
     r = build(req(), x_internal_token=settings.internal_token)
-    assert r.action_code == "FINALIZE_BUILD" and r.short_summary and r.primary_build and r.manufacturer_support_contacts
+    assert r.action_code == "FINALIZE_BUILD" and r.short_summary and r.primary_build
+    assert r.manufacturer_support_contacts == []
 
 def test_avoid_prepends_warning_and_setup_step():
     r = build(req(action_code="AVOID_COMBINATION", compatibility_status="incompatible", summary="Conflict found."),
@@ -25,6 +26,11 @@ def test_out_of_stock_never_hidden():
 def test_degraded_services_surface_as_limitation():
     r = build(req(degraded_services=["stock"]), x_internal_token=settings.internal_token)
     assert any("stock" in l for l in r.limitations)
+
+def test_unknown_price_and_owned_part_are_preserved():
+    r = build(req(parts=[{"type": "gpu", "name": "RTX 4060", "price": None, "in_stock": None,
+                         "owned": False, "product_url": None}]), x_internal_token=settings.internal_token)
+    assert r.primary_build[0].price is None and r.primary_build[0].in_stock is None
 
 def test_th_locale_gets_thai_warranty_region():
     r = build(req(locale="th-TH"), x_internal_token=settings.internal_token)

@@ -9,8 +9,11 @@ def pseudonymize(user_id: str) -> str: return hashlib.sha256(f"pcb-salt-{user_id
 class PartLine(BaseModel):
     type: str
     name: str
-    price: int
+    price: Optional[int] = None
     in_stock: Optional[bool] = None
+    owned: bool = False
+    product_url: Optional[str] = None
+    source: Optional[str] = None
 
 class AlternativeLine(BaseModel):
     to_part: str

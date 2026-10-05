@@ -2,7 +2,7 @@
 
 ## Status
 
-**Partially live and active in the website flow.** Price lookup uses SerpApi's Google Shopping API. Stock, benchmark, and manufacturer-spec connectors currently return unavailable; they do not return synthetic success data.
+**Partially live and active in the website flow.** Price lookup uses SerpApi's Google Shopping API. Stock, benchmark, and manufacturer-spec connectors return unavailable; they do not return synthetic success data. Module 03 forwards returned records to Module 05 through the backend.
 
 ## Endpoint
 

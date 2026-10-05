@@ -109,7 +109,7 @@ function Result({ r }: { r: BuildResponse }) {
       <table>
         <thead><tr><th>ชิ้นส่วน</th><th>รุ่น</th><th>สต็อก</th><th className="n">ราคา</th></tr></thead>
         <tbody>{r.parts_list.map((part) => (
-          <tr key={part.type}><td>{part.type}</td><td>{part.product_url ? <a href={part.product_url} target="_blank" rel="noreferrer">{part.name}</a> : part.name}</td>
+          <tr key={part.type}><td>{part.type}</td><td>{part.product_url ? <a href={part.product_url} target="_blank" rel="noreferrer">{part.name}</a> : part.name}{part.source && <small className="source">{part.source}</small>}</td>
             <td>{part.in_stock === null ? "ยังไม่ทราบ" : part.in_stock ? "มีสินค้า" : "หมด"}</td>
             <td className="n">{part.owned ? "มีอยู่แล้ว" : part.price === null ? "ไม่พบราคา" : baht(part.price)}{!part.owned && part.price !== null && <div className="bar" style={{ width: `${(part.price / max) * 100}%` }} />}</td></tr>))}
           <tr><th colSpan={3}>{typeof knownTotal === "number" ? "รวม" : "ยอดเฉพาะรายการที่พบราคา (ยังไม่ครบ)"}</th><th className="n">{prices.length ? baht(shownTotal) : "ไม่พบราคา"}</th></tr></tbody>

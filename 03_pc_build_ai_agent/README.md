@@ -8,7 +8,7 @@
 
 `classify -> extract -> ask_missing -> plan -> fetch -> integrate -> compatibility -> alternatives_rag -> quality -> package`
 
-The planner currently selects from a small, fixed candidate list by use case and brand. Price, stock, and benchmark tools call Module 04's `/v1/external/query` contract. Price results and retailer links are preserved; missing records mark the result degraded. Compatibility rules are deterministic. The knowledge/RAG and alternative-build nodes are not connected yet and are explicitly reported as unavailable.
+The planner currently selects from a small, fixed candidate list by use case and brand. Price, stock, and benchmark tools call Module 04's `/v1/external/query` contract. Price results and retailer links are preserved; normalized provider records with source timestamps are attached to the evidence package for Module 05. Missing records mark the result degraded. Compatibility checks are deterministic; the backend calls Modules 05–08 after this agent returns.
 
 ## Endpoint and run
 
@@ -27,5 +27,5 @@ Current test result: **11 passed**.
 ## Remaining work
 
 - Replace the fixed candidate list with catalog-backed candidate generation and budget optimization.
-- Connect Module 05 snapshots and Module 06 compatibility/knowledge/alternative results.
+- Replace the fixed candidate list with catalog-backed candidate generation and budget optimization.
 - Add real benchmark and stock providers through Module 04.

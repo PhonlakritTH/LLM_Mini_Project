@@ -14,8 +14,12 @@ services:
     env_file: ./02_api_backend/.env.example
     environment:
       AGENT_SERVICE_URL: http://pc_build_agent:8100
+      DATA_INTEGRATION_SERVICE_URL: http://data_integration:8300
+      KNOWLEDGE_SERVICE_URL: http://compat_knowledge:8400
+      DECISION_SERVICE_URL: http://decision_llm:8500
+      RECOMMENDATION_SERVICE_URL: http://recommendation_feedback:8600
       INTERNAL_TOKEN: dev-internal
-    depends_on: [pc_build_agent]
+    depends_on: [pc_build_agent, recommendation_feedback]
 
   pc_build_agent:
     build: ./03_pc_build_ai_agent
@@ -28,7 +32,7 @@ services:
       BENCHMARK_SERVICE_URL: http://external_data:8200
       RAG_SERVICE_URL: http://compat_knowledge:8400
       ALTERNATIVES_SERVICE_URL: http://compat_knowledge:8400
-    depends_on: [external_data, data_integration, compat_knowledge, decision_llm]
+    depends_on: [external_data]
 
   external_data:
     build: ./04_external_data_services

@@ -65,7 +65,7 @@ async def plan(s: AgentState):
 async def fetch(s: AgentState):
     names = [p["name"] for p in s.parts if not p["owned"]]
     uc = s.slots["use_case"] or "gaming"
-    calls = {"price": {"names": names}, "stock": {"names": names}, "benchmark": {"use_case": uc}}
+    calls = {"price": {"names": names}, "stock": {"names": names}, "benchmark": {"names": names, "use_case": uc}}
     results = await asyncio.gather(*(call_tool(s, k, v) for k, v in calls.items()), return_exceptions=True)
     for name, res in zip(calls, results):
         if isinstance(res, BudgetExceeded): raise res
@@ -81,11 +81,13 @@ async def fetch(s: AgentState):
 async def integrate(s: AgentState):
     prices = s.observations.get("price", {}).get("prices", {})
     links = s.observations.get("price", {}).get("links", {})
+    retailers = s.observations.get("price", {}).get("retailers", {})
     stock = s.observations.get("stock", {}).get("stock", {})
     for p in s.parts:
         p["price"] = 0 if p["owned"] else prices.get(p["name"])
         p["in_stock"] = True if p["owned"] else stock.get(p["name"])   # None = unknown
         p["product_url"] = links.get(p["name"])
+        p["source"] = retailers.get(p["name"])
     priced = [p["price"] for p in s.parts if p["price"] is not None]
     s.data_quality["total_price"] = sum(priced) if "price" not in s.degraded_services else None
     as_of = s.observations.get("price", {}).get("as_of")
@@ -127,6 +129,7 @@ def _result(s: AgentState, status: str) -> AgentResult:
                "parts": s.parts, "price_breakdown": {p["type"]: p["price"] for p in s.parts if p.get("price") is not None},
                "benchmark": s.observations.get("benchmark"), "compatibility": s.compatibility, "alternatives": s.alternatives,
                "rag_notes": s.evidence, "data_quality": s.data_quality, "assumptions": s.assumptions,
+               "records": [record for observation in s.observations.values() for record in observation.get("records", [])],
                "sources": sorted({o["source"] for o in s.observations.values() if "source" in o}),
                "updated_at": datetime.now(timezone.utc).isoformat()}
     return AgentResult(status=status, intent=s.intent, questions=s.missing, evidence_package=pkg, errors=s.errors,

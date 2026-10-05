@@ -17,6 +17,7 @@ button.ghost{background:none;color:var(--acc)}button:disabled{opacity:.55;cursor
 .row select{grid-column:1;grid-row:1}.row input:nth-of-type(1){grid-column:2;grid-row:1}.row button{grid-column:3;grid-row:1}
 .row input:nth-of-type(2){grid-column:1;grid-row:2}.row input:nth-of-type(3){grid-column:2;grid-row:2}
 .banner{padding:10px 12px;border-left:5px solid;border-radius:4px;background:var(--bg);margin:8px 0}
+.source{display:block;color:var(--mute);font-size:.8rem}
 .compatible{border-color:var(--ok)}.warning{border-color:var(--warn)}.incompatible{border-color:var(--bad)}
 table{width:100%;border-collapse:collapse}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}details{margin-top:8px}

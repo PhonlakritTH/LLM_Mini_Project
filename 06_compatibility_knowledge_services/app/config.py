@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     value_threshold_needs_review: float = 0.5
     substitution_max_hops: int = 2
     knowledge_cutoff: str = "2026-01-31"
+    enable_sample_knowledge: bool = False
     internal_token: str = "dev-internal"
 
 settings = Settings()

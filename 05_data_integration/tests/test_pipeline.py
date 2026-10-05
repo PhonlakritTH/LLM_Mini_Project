@@ -1,10 +1,13 @@
+from datetime import datetime, timedelta, timezone
 from app.config import settings
 from app.main import snapshot
 from app.models import IntegrationRequest, RawRecord
 
 def rec(**k):
-    k.setdefault("observed_at", "2026-09-27T10:00:00+00:00")
-    return RawRecord(fetched_at="2026-09-27T10:00:00+00:00", expires_at="2026-09-27T10:15:00+00:00", **k)
+    observed_at = datetime.now(timezone.utc).isoformat()
+    k.setdefault("observed_at", observed_at)
+    return RawRecord(fetched_at=observed_at,
+                     expires_at=(datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat(), **k)
 
 def test_happy_path():
     req = IntegrationRequest(request_id="r1", budget=50000, use_case="gaming", records=[
@@ -22,6 +25,18 @@ def test_missing_price_flagged_and_degraded():
         rec(kind="stock", part_id="RTX 4060", source="stock_primary", fields={"in_stock": True})])
     snap = snapshot(req, x_internal_token=settings.internal_token)
     assert snap.parts[0].degraded and any(f.flag == "missing" for f in snap.data_quality.flags)
+
+def test_requested_parts_remain_unknown_when_providers_return_no_records():
+    req = IntegrationRequest(request_id="r7", records=[], requested_parts=[
+        {"part_id": "Ryzen 5 7600", "category": "cpu", "socket": "AM5"},
+        {"part_id": "Owned PSU", "category": "psu", "owned": True, "wattage_draw": 650},
+    ])
+    snap = snapshot(req, x_internal_token=settings.internal_token)
+    parts = {part.part_id: part for part in snap.parts}
+    assert parts["Ryzen 5 7600"].price is None and parts["Ryzen 5 7600"].in_stock is None
+    assert parts["Ryzen 5 7600"].degraded
+    assert parts["Owned PSU"].owned and parts["Owned PSU"].price == 0 and not parts["Owned PSU"].degraded
+    assert snap.data_quality.coverage == 0.0
 
 def test_manufacturer_spec_wins_over_retailer():
     req = IntegrationRequest(request_id="r3", records=[

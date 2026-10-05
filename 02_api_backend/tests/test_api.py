@@ -1,5 +1,6 @@
+import pytest
 from fastapi.testclient import TestClient
-from app.main import app, _build_response
+from app.main import app, _build_response, _orchestrate
 from app.schemas import BuildRequest
 c = TestClient(app)
 def hdr(): return {"Authorization": "Bearer " + c.post("/v1/auth/dev-token").json()["access_token"]}
@@ -30,3 +31,58 @@ def test_over_budget_without_alternative_does_not_claim_a_swap():
         "updated_at": "2026-10-03T00:00:00Z"
     }}, request)
     assert result["recommendation_code"] == "wait_for_price_drop"
+
+@pytest.mark.asyncio
+async def test_orchestration_keeps_unknown_price_degraded_through_modules_05_to_08(monkeypatch):
+    from app import main
+    calls = []
+    output_part = {"type": "cpu", "name": "CPU A", "price": None, "in_stock": None,
+                   "owned": False, "product_url": None, "source": None}
+
+    async def post_service(_base, path, payload):
+        calls.append((path, payload))
+        if path == "/v1/integration/snapshot":
+            assert payload["requested_parts"][0]["part_id"] == "CPU A"
+            return {"parts": [{"part_id": "CPU A", "category": "cpu", "price": None, "in_stock": None,
+                               "owned": False, "degraded": True}],
+                    "data_quality": {"coverage": 0.0, "freshness_ok": True, "flags": []}}
+        if path == "/v1/knowledge/assess":
+            return {"compatibility": {"status": "NEEDS_REVIEW", "score": 0.5, "uncertainty": 0.4,
+                    "reason_codes": ["unknown_socket_data"], "hard_override": False},
+                    "alternatives": {"options": []}, "evidence": {"passages": []},
+                    "degraded_services": ["rag_provider_unavailable", "alternatives_provider_unavailable"]}
+        if path == "/v1/decision/evaluate":
+            assert "price" in payload["degraded_services"]
+            return {"action_code": "WAIT_FOR_PRICE_DROP", "compatibility_status": "warning", "confidence": 0.3,
+                    "escalate": True, "summary": "ข้อมูลไม่ครบ", "reasons": ["ราคาไม่ทราบ"],
+                    "immediate_actions": [], "citations": [], "versions": {}, "conversation_id": "c1"}
+        return {"action_code": "WAIT_FOR_PRICE_DROP", "compatibility_status": "warning", "confidence": 0.3,
+                "short_summary": "ข้อมูลไม่ครบ", "primary_build": [output_part], "reasons": ["ราคาไม่ทราบ"],
+                "immediate_actions": [], "sources": [], "fetched_at": "2026-10-05T00:00:00Z"}
+
+    monkeypatch.setattr(main, "_post_service", post_service)
+    request = BuildRequest(**body())
+    agent = {"status": "degraded", "degraded_services": ["price", "stock", "benchmark"],
+             "evidence_package": {"parts": [{"type": "cpu", "name": "CPU A", "owned": False}],
+                                 "records": [], "sources": [], "data_quality": {}, "request_summary": {}}}
+    result = await _orchestrate(agent, request)
+
+    assert [path for path, _ in calls] == ["/v1/integration/snapshot", "/v1/knowledge/assess",
+                                          "/v1/decision/evaluate", "/v1/recommendation/build"]
+    assert result["status"] == "degraded" and result["partial_result"]
+    assert result["recommendation_code"] == "wait_for_price_drop"
+    assert result["parts_list"][0]["price"] is None
+
+@pytest.mark.asyncio
+async def test_downstream_failure_never_finalizes_build(monkeypatch):
+    from app import main
+    async def unavailable(*_args, **_kwargs): return None
+    monkeypatch.setattr(main, "_post_service", unavailable)
+    request = BuildRequest(**body())
+    agent = {"status": "complete", "degraded_services": [], "evidence_package": {
+        "parts": [{"type": "cpu", "name": "CPU A", "price": 1000, "in_stock": True, "owned": False}],
+        "data_quality": {"total_price": 1000}, "compatibility": {"status": "compatible"}, "sources": []}}
+    result = await _orchestrate(agent, request)
+    assert result["status"] == "degraded"
+    assert result["recommendation_code"] != "finalize_build"
+    assert "data_integration" in result["degraded_services"]

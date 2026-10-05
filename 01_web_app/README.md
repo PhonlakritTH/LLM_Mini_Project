@@ -8,8 +8,8 @@
 
 - Collects budget, use case, preferred CPU/GPU brand, existing parts, socket, and optional PSU wattage.
 - Validates and normalizes form data in `lib/schema.ts` before submission.
-- Calls Module 02, keeps a conversation ID for follow-up requests, and supports request cancellation and idempotency keys.
-- Shows compatibility status, conflicts, incomplete-service warnings, product links, and unknown prices/stock without converting missing values to zero.
+- Calls Module 02, which orchestrates Modules 03–08; keeps a conversation ID for follow-up requests and supports cancellation/idempotency keys.
+- Shows final decision/compatibility status, conflicts, incomplete-service warnings, product links, and unknown prices/stock without converting missing values to zero.
 
 ## Run and verify
 
@@ -25,7 +25,7 @@ npm run build
 npm audit
 ```
 
-There is no automated browser/UI test suite yet. The production build and type check currently pass; npm audit reports no advisories for the locked dependencies.
+There is no automated browser/UI test suite yet. The production build/type check passed and npm audit reported no advisories at the last check. A no-key backend smoke request returned a degraded result with `null` prices/stock.
 
 ## Remaining work
 

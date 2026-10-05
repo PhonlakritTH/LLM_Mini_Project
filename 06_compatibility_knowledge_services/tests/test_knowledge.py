@@ -12,7 +12,8 @@ def test_compatible_build():
              {"category": "psu", "part_id": "650W", "wattage_draw": 650}]
     r = knowledge_assess(KnowledgeRequest(request_id="r1", snapshot=snap(parts), budget=60000), x_internal_token=settings.internal_token)
     assert r.compatibility.status == "COMPATIBLE" and not r.compatibility.hard_override
-    assert r.evidence.found and r.alternatives.options
+    assert not r.evidence.found and not r.alternatives.options
+    assert {"rag_provider_unavailable", "alternatives_provider_unavailable"}.issubset(r.degraded_services)
 
 def test_socket_mismatch_is_hard_incompatible():
     parts = [{"category": "cpu", "part_id": "Ryzen 5 7600", "socket": "AM5"},
@@ -43,3 +44,11 @@ def test_low_confidence_rag_returns_not_found():
 def test_schema_drift_degrades():
     r = knowledge_assess(KnowledgeRequest(request_id="r7", snapshot=snap([], schema="9.9")), x_internal_token=settings.internal_token)
     assert r.degraded and "schema_drift" in r.degraded_services
+
+def test_default_flow_never_returns_sample_knowledge():
+    assert settings.enable_sample_knowledge is False
+    response = knowledge_assess(KnowledgeRequest(request_id="r8", snapshot=snap([
+        {"category": "gpu", "part_id": "RTX 4060", "wattage_draw": 115}
+    ])), x_internal_token=settings.internal_token)
+    assert response.evidence.passages == []
+    assert response.alternatives.options == []

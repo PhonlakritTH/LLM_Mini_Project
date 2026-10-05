@@ -33,6 +33,13 @@ async def test_stock_unknown_waits():
     r = await evaluate(req(parts=[{"price": 40000, "in_stock": None}]), x_internal_token=settings.internal_token)
     assert r.action_code == "WAIT_FOR_PRICE_DROP"
 
+async def test_unknown_price_waits_without_reporting_zero_total():
+    r = await evaluate(req(parts=[{"price": None, "in_stock": None}], degraded_services=["price"]),
+                       x_internal_token=settings.internal_token)
+    assert r.action_code == "WAIT_FOR_PRICE_DROP"
+    assert any("Total price is unavailable" in reason for reason in r.reasons)
+    assert all("Total 0 THB" not in reason for reason in r.reasons)
+
 async def test_incompatible_never_finalizes_even_with_weak_alternative_signal(monkeypatch):
     # monotonic safety: hard_override always blocks FINALIZE_BUILD regardless of anything else
     r = await evaluate(req(compatibility={"status": "INCOMPATIBLE", "score": 0.99, "uncertainty": 0.0, "hard_override": True, "reason_codes": []}),

@@ -16,10 +16,11 @@ async def evaluate(req: DecisionRequest, x_internal_token: str = Header(default=
 
     trace = [f"request_id={req.request_id}"]
     compat = req.compatibility
+    price_unknown = any(p.get("price") is None for p in req.parts)
     total = sum(p.get("price") or 0 for p in req.parts)
     stock_unknown = any(p.get("in_stock") is None for p in req.parts)
     good_alt = bool(req.alternatives.get("options")) and any(o.get("price_delta", 1) <= 0 or o.get("value_score", 0) > 0 for o in req.alternatives.get("options", []))
-    price_high = "price" in req.degraded_services
+    price_high = "price" in req.degraded_services or price_unknown
 
     action, compat_bucket, fired = decide(req.budget, total, compat.get("status", "NEEDS_REVIEW"),
                                           compat.get("hard_override", False), stock_unknown, good_alt, price_high)
@@ -29,7 +30,11 @@ async def evaluate(req: DecisionRequest, x_internal_token: str = Header(default=
     conf, escalate = confidence_and_escalation(compat.get("score", 0.9), compat.get("uncertainty", 0.1), missing_evidence, conflicting)
     trace.append(f"confidence={conf} escalate={escalate}")
 
-    reasons_in = [f"reason_code:{r}" for r in compat.get("reason_codes", [])] + [f"Total {total:,} THB vs budget {req.budget:,} THB."]
+    reasons_in = [f"reason_code:{r}" for r in compat.get("reason_codes", [])]
+    if price_unknown:
+        reasons_in.append("Total price is unavailable; it cannot be compared with the budget.")
+    else:
+        reasons_in.append(f"Total {total:,} THB vs budget {req.budget:,} THB.")
     wattage_warning = next((f"⚠ {r}" for r in compat.get("reason_codes", []) if "psu" in r or "wattage" in r), None)
 
     evidence_package = {"compatibility": compat, "alternatives": req.alternatives.get("options", [])[:3],
