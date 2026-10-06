@@ -1,20 +1,14 @@
 # Module 06: Compatibility and Knowledge Services
 
-## หน้าที่และสถานะ
+## หน้าที่
 
-รับ Module 05 snapshot จาก Module 02 และประเมิน compatibility พร้อม evidence/alternatives. กฎ deterministic ที่มีอยู่ตรวจ socket CPU/board, headroom PSU, wattage limit และ case form factor บางกรณี. ไม่ครอบคลุม compatibility matrix เต็ม เช่น CPU BIOS support, RAM generation/QVL, GPU clearance, PSU connectors หรือ radiator fit; ข้อมูลที่ไม่พอควรเป็น needs-review ไม่ใช่ compatible ที่ยืนยันแล้ว.
+ตรวจ snapshot ของ build จาก facts ที่มีแหล่งอ้างอิง: CPU/motherboard socket และ CPU support list, memory generation, PSU wattage/connectors, GPU length/case clearance และ board/case form factor. ถ้าข้อมูล critical หรือ provenance หาย จะให้ `NEEDS_REVIEW`; ความขัดแย้งชัดเจนจะเป็น `INCOMPATIBLE`. RAG และ alternative retrieval ยังปิด/ไม่มี live source และไม่ใช้ sample data เป็นข้อเท็จจริง.
 
-`POST /v1/knowledge/assess` ต้องมี `X-Internal-Token`; `GET /health` รายงาน versions. ค่า `ENABLE_SAMPLE_KNOWLEDGE` ปิดเป็นค่าเริ่มต้น. Default request ไม่คืน sample passages/ราคา alternatives; RAG และ alternative providers ยังไม่มี live implementation และผลจะระบุ degraded.
+ฐานความรู้เริ่มต้นใน Module 03 มี BIOS-version และ RAM-QVL validation เป็น `not_verified`; จึงยังไม่ควรอ้างว่า build ผ่าน compatibility ครบ แม้ socket และชนิด RAM จะตรงกัน. เพิ่มรุ่นได้เมื่อมี source, version, units และหลักฐาน support matrix ที่ตรวจสอบได้.
 
-## ก่อนเปิดใช้ข้อมูลความเข้ากันได้จริง
+## API และการรัน
 
-1. เลือก official/manufacturer sources และสิทธิ์ใช้เอกสาร; เก็บ document URL/ID, section, revision/date และ source lineage
-2. สร้าง versioned compatibility facts/catalog (socket, chipset, CPU support/BIOS, memory type, form factor, clearance, PSU connectors/wattage) พร้อม unit normalization
-3. ใช้ deterministic rules เป็น safety gate; ข้อมูลที่ไม่มีหลักฐานต้องคืน unknown/needs-review
-4. ทำ RAG จากเอกสารที่ตรวจสอบสิทธิ์/รุ่นและอ้าง citation ตรงกับข้อความ; retrieval ช่วยอธิบาย ไม่เป็นแหล่งตัดสิน compatibility เพียงอย่างเดียว
-5. สร้าง alternatives จาก catalog และ offers ที่ตรงรุ่น/compatibility/ราคา freshness ไม่ใช้รายการราคาฝังใน source code
-
-## ตั้งค่าและรัน
+`POST /v1/knowledge/assess` ใช้ `X-Internal-Token`; `GET /health` รายงาน model/schema versions.
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -22,4 +16,4 @@ python -m uvicorn app.main:app --port 8400 --reload
 python -m pytest -q
 ```
 
-เปิด sample mode ไม่ได้ทำให้ข้อมูลกลายเป็นข้อมูลจริง; ห้ามเปิดใน production. แผน end-to-end และ real-data requirements อยู่ใน [root README](../README.md).
+เพิ่ม compatibility rules พร้อม tests เมื่อเพิ่ม fields/parts ใหม่; อย่าเปลี่ยน unknown ให้ compatible โดย default. วิธีรันทั้งระบบ: [README_RUN.md](../README_RUN.md).

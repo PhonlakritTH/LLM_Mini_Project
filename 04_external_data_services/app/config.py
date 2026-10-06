@@ -9,8 +9,6 @@ class Settings(BaseSettings):
     google_location: str = "Bangkok, Thailand"
     provider_timeout: float = 5
     cache_ttl_price: int = 120        # prices change fast
-    cache_ttl_stock: int = 60
-    cache_ttl_benchmark: int = 86400  # benchmarks change slowly
     rate_limit: int = 60
     user_agent: str = "pc-spec-builder/1.0"
     internal_token: str = "dev-internal"

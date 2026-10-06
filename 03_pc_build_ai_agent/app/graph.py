@@ -5,16 +5,10 @@ from .config import settings
 from .state import AgentState, AgentRequest, AgentResult, BudgetExceeded
 from .tools import call_tool, ToolFailed, ToolDenied
 from .compat import check_compatibility
+from .knowledge_base import BY_ID, BY_TYPE
 
 CHECKPOINTS: dict[str, dict] = {}   # swap for Redis/PostgreSQL
 
-CPU = {"gaming": ("Ryzen 5 7600", "AM5", "Core i5-13400F", "LGA1700"), "video_editing": ("Ryzen 7 7700", "AM5", "Core i7-13700", "LGA1700"),
-       "office": ("Ryzen 5 5600G", "AM4", "Core i3-12100", "LGA1700"), "streaming": ("Ryzen 7 7700", "AM5", "Core i5-13600K", "LGA1700"),
-       "ai_rendering": ("Ryzen 9 7900", "AM5", "Core i7-13700K", "LGA1700")}
-GPU = {"gaming": (("RTX 4060", 115), ("RX 7600", 165)), "video_editing": (("RTX 4060 Ti", 160), ("RX 7700 XT", 245)),
-       "office": (("Integrated", 0), ("Integrated", 0)), "streaming": (("RTX 4060", 115), ("RX 7600", 165)),
-       "ai_rendering": (("RTX 4070 Super", 220), ("RX 7800 XT", 263))}
-BOARD = {"AM5": "B650M", "AM4": "B550M", "LGA1700": "B760M"}
 COMPAT_KW = re.compile(r"compatib|เข้ากัน|ใช้ด้วยกัน|ใส่ได้", re.I)
 SPEC_KW = re.compile(r"what is|spec|คืออะไร|ต่างกัน|difference", re.I)
 
@@ -32,10 +26,15 @@ async def extract(s: AgentState):
     prev = CHECKPOINTS.get(r.conversation_id or "", {}).get("slots", {})
     s.slots = {"budget": r.budget or prev.get("budget"), "use_case": r.use_case or prev.get("use_case"),
                "brand": r.preferred_brand if r.preferred_brand != "any" else prev.get("brand", "any"),
+               "gpu_brand": r.preferred_gpu_brand if r.preferred_gpu_brand != "any" else
+                   ("nvidia" if r.preferred_brand == "nvidia" else prev.get("gpu_brand", "any")),
+               "cpu_model": r.preferred_cpu_model or prev.get("cpu_model"),
+               "gpu_model": r.preferred_gpu_model or prev.get("gpu_model"),
                "constraints": r.constraints.model_dump(exclude_none=True) or prev.get("constraints", {}),
                "existing_parts": [p.model_dump() for p in r.existing_parts] or prev.get("existing_parts", [])}
     if not s.slots["constraints"].get("case_form_factor"):
-        s.assumptions.append("Case form factor not given; assuming ATX mid tower.")
+        s.slots["constraints"]["case_form_factor"] = "mATX"
+        s.assumptions.append("Using a sourced mATX case and motherboard combination.")
     return "ask_missing"
 
 async def ask_missing(s: AgentState):
@@ -47,25 +46,66 @@ async def ask_missing(s: AgentState):
     return "finish" if s.missing else "plan"
 
 async def plan(s: AgentState):
-    s.plan = ["price", "stock", "benchmark", "integrate", "compatibility", "alternatives_rag", "quality", "package"]
-    uc, brand = s.slots["use_case"] or "gaming", s.slots["brand"]
-    cpu_a, sock_a, cpu_i, sock_i = CPU[uc]
-    cpu, sock = (cpu_i, sock_i) if brand == "intel" else (cpu_a, sock_a)
-    gpu, watts = GPU[uc][1] if brand == "amd" else GPU[uc][0]
-    ram = "16GB DDR5" if sock == "AM5" else "16GB DDR4"
-    cand = [dict(type="cpu", name=cpu, socket=sock), dict(type="motherboard", name=BOARD[sock], socket=sock, form_factor="mATX"),
-            dict(type="gpu", name=gpu, watts=watts), dict(type="ram", name=ram), dict(type="storage", name="1TB NVMe"),
-            dict(type="psu", name="650W 80+ Bronze", wattage=650), dict(type="case", name="ATX Mid Tower")]
-    owned = {p["type"]: p for p in s.slots["existing_parts"]}
-    # an owned part replaces the candidate entirely; unknown fields stay unknown (never guessed)
-    s.parts = [{**{k: v for k, v in owned[c["type"]].items() if v is not None}, "owned": True} if c["type"] in owned
-               else {**c, "owned": False} for c in cand]
+    s.plan = ["knowledge_base", "price_reference", "integrate", "compatibility", "quality", "package"]
+    brand = s.slots["brand"]
+    cpus = [part for part in BY_TYPE["cpu"] if brand in ("any", "nvidia") or part["brand"] == brand]
+    if s.slots.get("cpu_model"):
+        query = s.slots["cpu_model"].casefold()
+        cpus = [part for part in cpus if query in part["name"].casefold()]
+        if not cpus:
+            s.missing.append("The requested CPU model is not in the sourced component knowledge base.")
+            return "finish"
+
+    use_case = s.slots["use_case"] or "gaming"
+    wants_gpu = use_case != "office" or bool(s.slots.get("gpu_model")) or s.slots["gpu_brand"] != "any"
+    if not wants_gpu:
+        cpus = [part for part in cpus if part["specs"].get("integrated_graphics")]
+    gpus = BY_TYPE["gpu"] if wants_gpu else [None]
+    gpu_brand = s.slots["gpu_brand"]
+    if wants_gpu and gpu_brand != "any":
+        gpus = [part for part in gpus if part["brand"] == gpu_brand]
+    if wants_gpu and s.slots.get("gpu_model"):
+        query = s.slots["gpu_model"].casefold()
+        gpus = [part for part in gpus if query in part["name"].casefold()]
+        if not gpus:
+            s.missing.append("The requested GPU model is not in the sourced component knowledge base.")
+            return "finish"
+
+    cand_builds = []
+    for cpu in cpus:
+        board = next((part for part in BY_TYPE["motherboard"]
+                      if cpu["part_id"] in part["specs"]["supported_cpu_ids"]), None)
+        ram = next((part for part in BY_TYPE["ram"]
+                    if part["specs"]["memory_type"] == cpu["specs"]["memory_type"]), None)
+        if not board or not ram:
+            continue
+        fixed = [cpu, board, ram, *[BY_ID["storage-wd-blue-sn580-1tb"],
+                BY_ID["psu-corsair-cv650"], BY_ID["case-msi-mag-forge-m100a"]]]
+        for gpu in gpus:
+            chosen = fixed + ([gpu] if gpu else [])
+            owned = {p["type"]: p for p in s.slots["existing_parts"]}
+            build = []
+            for component in chosen:
+                if component["type"] in owned:
+                    old = owned[component["type"]]
+                    build.append({"part_id": f"owned-{component['type']}", "type": component["type"],
+                                  "name": old["name"], "specs": {
+                                      "socket": old.get("socket"), "wattage": old.get("wattage")},
+                                  "source": None, "rank": 0, "owned": True})
+                else:
+                    build.append({**component, "owned": False})
+            cand_builds.append(build)
+    s.candidate_builds = cand_builds
+    if not cand_builds:
+        s.missing.append("No sourced component combination matches the requested preferences.")
+        return "finish"
     return "fetch"
 
 async def fetch(s: AgentState):
-    names = [p["name"] for p in s.parts if not p["owned"]]
-    uc = s.slots["use_case"] or "gaming"
-    calls = {"price": {"names": names}, "stock": {"names": names}, "benchmark": {"names": names, "use_case": uc}}
+    candidates = {part["name"]: part for build in s.candidate_builds for part in build if not part["owned"]}
+    names = sorted(candidates)
+    calls = {"price": {"names": names,
+                       "search_terms": {name: candidates[name]["search_terms"] for name in names}}}
     results = await asyncio.gather(*(call_tool(s, k, v) for k, v in calls.items()), return_exceptions=True)
     for name, res in zip(calls, results):
         if isinstance(res, BudgetExceeded): raise res
@@ -80,16 +120,41 @@ async def fetch(s: AgentState):
 
 async def integrate(s: AgentState):
     prices = s.observations.get("price", {}).get("prices", {})
-    links = s.observations.get("price", {}).get("links", {})
-    retailers = s.observations.get("price", {}).get("retailers", {})
-    stock = s.observations.get("stock", {}).get("stock", {})
-    for p in s.parts:
-        p["price"] = 0 if p["owned"] else prices.get(p["name"])
-        p["in_stock"] = True if p["owned"] else stock.get(p["name"])   # None = unknown
-        p["product_url"] = links.get(p["name"])
-        p["source"] = retailers.get(p["name"])
-    priced = [p["price"] for p in s.parts if p["price"] is not None]
-    s.data_quality["total_price"] = sum(priced) if "price" not in s.degraded_services else None
+    ranges = s.observations.get("price", {}).get("ranges", {})
+    for build in s.candidate_builds:
+        for part in build:
+            part["price"] = None if part["owned"] else prices.get(part["name"])
+            part["price_low"], part["price_high"] = (None, None) if part["owned"] else ranges.get(part["name"], (None, None))
+            part["spec_source"] = part.get("source")
+
+    budget = s.slots["budget"] or 0
+    complete = []
+    for build in s.candidate_builds:
+        priced = [p for p in build if not p["owned"]]
+        if priced and all(p.get("price_low") is not None and p.get("price_high") is not None for p in priced):
+            low = sum(p["price_low"] for p in priced)
+            high = sum(p["price_high"] for p in priced)
+            rank = sum(p.get("rank", 0) for p in build)
+            complete.append((build, low, high, rank))
+
+    affordable = [item for item in complete if item[2] <= budget]
+    if affordable:
+        chosen, low, high, _rank = max(affordable, key=lambda item: (item[3], item[2]))
+        s.data_quality["budget_fit"] = "within_budget"
+    elif complete:
+        chosen, low, high, _rank = min(complete, key=lambda item: (item[2], -item[3]))
+        s.data_quality["budget_fit"] = "over_budget"
+    else:
+        chosen = max(s.candidate_builds, key=lambda build: sum(part.get("rank", 0) for part in build))
+        low = high = None
+        s.data_quality["budget_fit"] = "unknown"
+    s.parts = chosen
+    s.data_quality["total_price_range"] = (
+        {"low": low, "high": high, "currency": "THB"} if low is not None and high is not None else None)
+    s.data_quality["total_price"] = (
+        round(sum(p["price"] for p in chosen if not p["owned"]))
+        if all(p["owned"] or p.get("price") is not None for p in chosen) else None)
+    s.data_quality["unpriced_parts"] = [p["name"] for p in chosen if not p["owned"] and p.get("price_low") is None]
     as_of = s.observations.get("price", {}).get("as_of")
     if as_of:
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(as_of)).total_seconds()
@@ -105,13 +170,14 @@ async def compatibility(s: AgentState):
 async def alternatives_rag(s: AgentState):
     s.alternatives = []
     s.evidence = []
-    s.degraded_services.append("knowledge_services")
     return "quality"
 
 async def quality(s: AgentState):
-    need = {"price", "stock", "benchmark"}
-    s.data_quality["missing_evidence"] = sorted(need & set(s.degraded_services))
+    s.data_quality["missing_evidence"] = sorted({"price"} & set(s.degraded_services))
     s.data_quality["freshness_ok"] = not s.data_quality.get("stale_price")
+    s.data_quality["price_reference_source"] = "Google Shopping via SerpApi"
+    s.data_quality["price_reference_note"] = "Indicative market range from matched search results; not a quote."
+    s.data_quality["price_reference_observed_at"] = s.observations.get("price", {}).get("as_of")
     return "package"
 
 async def package(s: AgentState):
@@ -125,12 +191,13 @@ NODES = {"classify": classify, "extract": extract, "ask_missing": ask_missing, "
 def _result(s: AgentState, status: str) -> AgentResult:
     pkg = None
     if s.parts and status != "needs_info":
-        pkg = {"request_summary": {k: s.slots.get(k) for k in ("budget", "use_case", "brand", "constraints")},
+        pkg = {"request_summary": {k: s.slots.get(k) for k in ("budget", "use_case", "brand", "gpu_brand", "cpu_model", "gpu_model", "constraints")},
                "parts": s.parts, "price_breakdown": {p["type"]: p["price"] for p in s.parts if p.get("price") is not None},
                "benchmark": s.observations.get("benchmark"), "compatibility": s.compatibility, "alternatives": s.alternatives,
                "rag_notes": s.evidence, "data_quality": s.data_quality, "assumptions": s.assumptions,
                "records": [record for observation in s.observations.values() for record in observation.get("records", [])],
-               "sources": sorted({o["source"] for o in s.observations.values() if "source" in o}),
+               "sources": sorted({p["spec_source"] for p in s.parts if p.get("spec_source")} |
+                                 {o["source"] for o in s.observations.values() if "source" in o}),
                "updated_at": datetime.now(timezone.utc).isoformat()}
     return AgentResult(status=status, intent=s.intent, questions=s.missing, evidence_package=pkg, errors=s.errors,
                        degraded_services=sorted(set(s.degraded_services)), needs_human_review=s.needs_human_review,

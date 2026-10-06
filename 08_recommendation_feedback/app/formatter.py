@@ -1,11 +1,10 @@
-"""Builds the final, user-facing response. Order: action -> reason -> alternatives -> sources.
-Never hides an out-of-stock or discontinued alert."""
+"""Builds the final, user-facing planning response."""
 from datetime import datetime, timedelta, timezone
 from .config import settings
 from .models import FormatRequest, RecommendationResponse, now_iso
 from .warranty import contacts_for
 
-SUMMARY_PREFIX = {"FINALIZE_BUILD": "", "SWAP_COMPONENT": "", "WAIT_FOR_PRICE_DROP": "", "AVOID_COMBINATION": "⚠ "}
+SUMMARY_PREFIX = {"FINALIZE_BUILD": "", "SWAP_COMPONENT": "", "RECONFIGURE_BUILD": "", "NEEDS_PRICE_DATA": "", "AVOID_COMBINATION": "⚠ "}
 
 def build_response(req: FormatRequest) -> RecommendationResponse:
     limitations = []
@@ -13,15 +12,11 @@ def build_response(req: FormatRequest) -> RecommendationResponse:
         limitations.append(f"Some data could not be verified: {', '.join(req.degraded_services)}.")
     if req.escalate:
         limitations.append("This build was flagged for extra review; treat the result as lower-confidence.")
-    out_of_stock = [p.name for p in req.parts if p.in_stock is False]
-    if out_of_stock:
-        limitations.append(f"Out of stock right now: {', '.join(out_of_stock)}.")  # never hidden
-
     immediate = list(req.immediate_actions)
-    setup = ["Confirm final price and stock at checkout before paying.",
-             "Verify PSU wattage and cable connectors match the GPU before installation."]
+    setup = ["ราคาเป็นช่วงอ้างอิงจากผลค้นหาที่จับคู่ได้ ไม่ใช่ราคาซื้อขายหรือใบเสนอราคา",
+             "ตรวจสอบ BIOS, ระยะติดตั้ง และสายไฟกับเอกสารรุ่นจริงก่อนนำสเปกไปใช้"]
     if req.compatibility_status == "incompatible":
-        setup.insert(0, "Do not purchase the current combination; resolve the conflict first.")
+        setup.insert(0, "อย่าประกอบชุดนี้จนกว่าจะแก้ข้อขัดแย้งด้าน compatibility")
 
     fetched = now_iso()
     expires = (datetime.now(timezone.utc) + timedelta(seconds=settings.price_alert_refresh_interval)).isoformat()

@@ -4,7 +4,7 @@ from .config import settings
 from .models import ActionCode
 
 def decide(budget: int, total_price: int, compat_status: str, hard_override: bool,
-          stock_unknown: bool, has_good_alternative: bool, price_high_vs_trend: bool) -> tuple[ActionCode, str, list[str]]:
+          data_incomplete: bool, has_good_alternative: bool, price_uncertain: bool) -> tuple[ActionCode, str, list[str]]:
     fired = [f"policy:{settings.decision_policy_version}"]
     if compat_status == "INCOMPATIBLE" or hard_override:
         fired.append("rule:hard_incompatible_blocks_finalize")
@@ -24,14 +24,14 @@ def decide(budget: int, total_price: int, compat_status: str, hard_override: boo
             fired.append("rule:cheaper_alternative_available")
             return "SWAP_COMPONENT", "warning", fired
         fired.append("rule:no_cheaper_alternative")
-        return "WAIT_FOR_PRICE_DROP", "warning", fired
+        return "RECONFIGURE_BUILD", "warning", fired
 
-    if stock_unknown or price_high_vs_trend:
-        fired.append("rule:stock_unknown_or_price_high")
-        return "WAIT_FOR_PRICE_DROP", "warning", fired
+    if data_incomplete or price_uncertain:
+        fired.append("rule:reference_price_or_evidence_uncertain")
+        return "NEEDS_PRICE_DATA", "warning", fired
 
     if compat_status == "NEEDS_REVIEW":
-        return "SWAP_COMPONENT" if has_good_alternative else "WAIT_FOR_PRICE_DROP", "warning", fired
+        return "SWAP_COMPONENT" if has_good_alternative else "NEEDS_PRICE_DATA", "warning", fired
 
     fired.append("rule:all_checks_passed")
     return "FINALIZE_BUILD", "compatible", fired

@@ -107,7 +107,7 @@ def _fallback_response(agent_result: dict, body: BuildRequest, unavailable: str)
     degraded = sorted(set(result.get("degraded_services", [])) | {unavailable})
     result.update(status="degraded", partial_result=True, confidence=None, degraded_services=degraded)
     if result.get("compatibility_status") != "incompatible":
-        result.update(recommendation_code="wait_for_price_drop",
+        result.update(recommendation_code="needs_price_data",
                       summary=f"บริการ {unavailable} ไม่พร้อม จึงยังยืนยันผลจัดสเปกไม่ได้")
     return result
 
@@ -118,9 +118,13 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
 
     agent_parts = package.get("parts", [])
     requested_parts = [{
-        "part_id": part["name"], "category": part["type"], "socket": part.get("socket"),
+        "part_id": part["name"], "knowledge_id": part.get("part_id"),
+        "category": part["type"], "socket": part.get("specs", {}).get("socket"),
         "wattage_draw": part.get("wattage") or part.get("watts"),
-        "form_factor": part.get("form_factor"), "owned": part.get("owned", False),
+        "form_factor": part.get("specs", {}).get("form_factor"),
+        "specs": part.get("specs", {}),
+        "spec_source": part.get("spec_source"),
+        "owned": part.get("owned", False),
     } for part in agent_parts]
     snapshot = await _post_service(s.data_integration_service_url, "/v1/integration/snapshot", {
         "request_id": body.request_id, "budget": body.budget, "use_case": body.use_case,
@@ -130,14 +134,10 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
     if snapshot is None:
         return _fallback_response(agent_result, body, "data_integration")
 
-    data_quality = snapshot.get("data_quality", {})
+    data_quality = {**snapshot.get("data_quality", {}), **package.get("data_quality", {})}
     degraded = set(agent_result.get("degraded_services", []))
     if data_quality.get("coverage", 0) < 1:
         degraded.add("price")
-    if any(part.get("in_stock") is None for part in snapshot.get("parts", [])):
-        degraded.add("stock")
-    if not any(part.get("performance_index") is not None for part in snapshot.get("parts", [])):
-        degraded.add("benchmark")
     if not data_quality.get("freshness_ok", False):
         degraded.add("stale_data")
 
@@ -150,9 +150,14 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
         return _fallback_response(agent_result, body, "knowledge_services")
     degraded.update(knowledge.get("degraded_services", []))
 
+    decision_parts = [{
+        **part,
+        "price": round((part["price_low"] + part["price_high"]) / 2)
+        if part.get("price_low") is not None and part.get("price_high") is not None else part.get("price"),
+    } for part in snapshot.get("parts", [])]
     decision = await _post_service(s.decision_service_url, "/v1/decision/evaluate", {
         "request_id": body.request_id, "conversation_id": body.conversation_id,
-        "budget": body.budget, "parts": snapshot.get("parts", []),
+        "budget": body.budget, "parts": decision_parts,
         "compatibility": knowledge.get("compatibility", {}),
         "alternatives": knowledge.get("alternatives", {"options": []}),
         "evidence": knowledge.get("evidence", {"passages": []}),
@@ -161,13 +166,12 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
     if decision is None:
         return _fallback_response(agent_result, body, "decision_engine")
 
-    agent_part_by_name = {part["name"]: part for part in agent_parts}
     decision_parts = [{
         "type": part.get("category", "part"), "name": part.get("part_id", "Unknown part"),
-        "price": part.get("price"), "in_stock": part.get("in_stock"),
+        "price": part.get("price"), "price_low": part.get("price_low"), "price_high": part.get("price_high"),
+        "price_source": part.get("price_source"),
+        "spec_source": (part.get("spec_sources") or [None])[0],
         "owned": part.get("owned", False),
-        "product_url": agent_part_by_name.get(part.get("part_id"), {}).get("product_url"),
-        "source": agent_part_by_name.get(part.get("part_id"), {}).get("source"),
     } for part in snapshot.get("parts", [])]
     price_records = [record for record in package.get("records", []) if record.get("kind") == "price"]
     price_observed_at = max((record["observed_at"] for record in price_records), default=None)
@@ -179,7 +183,9 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
         "reasons": decision["reasons"], "immediate_actions": decision["immediate_actions"],
         "citations": decision.get("citations", []), "parts": decision_parts,
         "alternatives": [], "degraded_services": sorted(degraded),
-        "price_observed_at": price_observed_at, "consent_live_updates": False,
+        "price_observed_at": price_observed_at,
+        "total_price_range": data_quality.get("total_price_range"),
+        "consent_live_updates": False,
         "versions": decision.get("versions", {}),
     })
     if formatted is None:
@@ -189,20 +195,31 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
     status = (formatted or {}).get("compatibility_status", decision["compatibility_status"])
     output_parts = (formatted or {}).get("primary_build", decision_parts)
     required_prices = [part for part in output_parts if not part.get("owned", False)]
-    total = sum(part["price"] for part in required_prices) if all(part.get("price") is not None for part in required_prices) else None
+    ranges_complete = all(part.get("price_low") is not None and part.get("price_high") is not None
+                          for part in required_prices)
+    total_range = ({
+        "low": sum(part["price_low"] for part in required_prices),
+        "high": sum(part["price_high"] for part in required_prices),
+        "currency": "THB",
+    } if required_prices and ranges_complete else None)
+    total = round(sum((part.get("price_low", part.get("price", 0)) +
+                       part.get("price_high", part.get("price", 0))) / 2
+                      for part in required_prices)) if all(part.get("price") is not None for part in required_prices) else None
     return BuildResponse(
         status="degraded" if degraded or decision.get("escalate") else "complete", questions=[],
         recommendation_code={"FINALIZE_BUILD": "finalize_build", "SWAP_COMPONENT": "swap_component",
-                             "WAIT_FOR_PRICE_DROP": "wait_for_price_drop", "AVOID_COMBINATION": "avoid_combination"}[action],
+                             "RECONFIGURE_BUILD": "reconfigure_build", "NEEDS_PRICE_DATA": "needs_price_data",
+                             "AVOID_COMBINATION": "avoid_combination"}[action],
         compatibility_status=status, confidence=decision.get("confidence"),
         summary=(formatted or {}).get("short_summary", decision["summary"]),
         reasons=(formatted or {}).get("reasons", decision["reasons"]),
+        limitations=(formatted or {}).get("limitations", []),
         conflicts=(knowledge.get("compatibility", {}).get("reason_codes", [])
                    if status == "incompatible" else []), suggested_fix=None,
         parts_list=output_parts,
         price_breakdown={part["type"]: part.get("price") for part in output_parts},
-        benchmark_estimate=package.get("benchmark"),
-        data_quality={**data_quality, "total_price": total},
+        data_quality={**data_quality, "total_price": total, "total_price_range": total_range,
+                      "budget_is_estimate": True},
         sources=package.get("sources", []) + [f"{item['document_id']}:{item['section']}"
             for item in (formatted or {}).get("sources", [])],
         partial_result=bool(degraded) or bool(decision.get("escalate")),
@@ -216,9 +233,9 @@ def _build_response(agent_result: dict, body: BuildRequest) -> dict:
     package = agent_result.get("evidence_package") or {}
     if agent_result.get("status") == "needs_info" or not package:
         return BuildResponse(status="needs_info", questions=agent_result.get("questions", []),
-            recommendation_code="wait_for_price_drop", compatibility_status="warning", confidence=None,
-            summary="ต้องการข้อมูลเพิ่มเติมก่อนจัดสเปก", reasons=[], conflicts=[], parts_list=[],
-            price_breakdown={}, benchmark_estimate=None, sources=[], partial_result=True,
+            recommendation_code="needs_price_data", compatibility_status="warning", confidence=None,
+            summary="ต้องการข้อมูลเพิ่มเติมก่อนจัดสเปก", reasons=[], limitations=[], conflicts=[], parts_list=[],
+            price_breakdown={}, sources=[], partial_result=True,
             degraded_services=agent_result.get("degraded_services", []), updated_at=datetime.now(timezone.utc).isoformat(),
             request_id=body.request_id, correlation_id="", conversation_id=body.conversation_id or "").model_dump()
 
@@ -229,13 +246,12 @@ def _build_response(agent_result: dict, body: BuildRequest) -> dict:
     parts = package.get("parts", [])
     total = quality.get("total_price")
     degraded = sorted(set(agent_result.get("degraded_services", [])))
-    stock_unknown = any(part.get("in_stock") is None for part in parts)
     if status == "incompatible":
         action = "avoid_combination"
-    elif total is None or stock_unknown or any(name in degraded for name in ("price", "stock", "benchmark")):
-        action = "wait_for_price_drop"
+    elif total is None or any(name in degraded for name in ("price",)):
+        action = "needs_price_data"
     elif total > body.budget:
-        action = "swap_component" if package.get("alternatives") else "wait_for_price_drop"
+        action = "swap_component" if package.get("alternatives") else "reconfigure_build"
     else:
         action = "finalize_build"
 
@@ -244,22 +260,30 @@ def _build_response(agent_result: dict, body: BuildRequest) -> dict:
         reasons.append(f"Known total: {total:,} THB against a {body.budget:,} THB budget.")
     if not reasons:
         reasons.append("Compatibility was checked by deterministic component rules.")
-    benchmark = package.get("benchmark")
+    limitations = []
+    if degraded:
+        limitations.append(f"ข้อมูลบางส่วนยังตรวจไม่ได้: {', '.join(degraded)}")
+    if quality.get("price_reference_note"):
+        limitations.append(quality["price_reference_note"])
+    if compat.get("unknown"):
+        limitations.append("ความเข้ากันได้บางด้านยังต้องตรวจจากคู่มือ/รายการ support ของผู้ผลิต")
     return BuildResponse(status=agent_result.get("status", "degraded"), questions=agent_result.get("questions", []),
         recommendation_code=action, compatibility_status=status,
         confidence=None,
         summary=("ตรวจพบชิ้นส่วนที่ไม่เข้ากัน" if status == "incompatible" else
-             "ราคารวมเกินงบและยังไม่มีตัวเลือกทดแทนที่ยืนยันได้" if total is not None and total > body.budget and action == "wait_for_price_drop" else
-             "ข้อมูลราคา/สต็อก/ประสิทธิภาพยังไม่ครบ จึงยังยืนยันรายการซื้อไม่ได้" if action == "wait_for_price_drop" else
+             "ราคารวมอ้างอิงเกินงบที่กำหนด" if total is not None and total > body.budget and action == "reconfigure_build" else
+             "ข้อมูลราคาอ้างอิงยังไม่ครบ จึงยังประเมินงบรวมไม่ได้" if action == "needs_price_data" else
                  "สเปกผ่านการตรวจสอบตามข้อมูลที่มี"),
-        reasons=reasons, conflicts=compat.get("conflicts", []), suggested_fix=None,
+        reasons=reasons, limitations=limitations, conflicts=compat.get("conflicts", []), suggested_fix=None,
         parts_list=[{"type": p["type"], "name": p["name"], "price": p.get("price"),
-                     "in_stock": p.get("in_stock"), "source": package.get("sources", [None])[0] if package.get("sources") else None,
-                     "product_url": p.get("product_url"), "owned": p.get("owned", False)} for p in parts],
+                     "price_low": p.get("price_low"), "price_high": p.get("price_high"),
+                     "price_source": p.get("price_source"),
+                     "spec_source": p.get("spec_source"),
+                     "owned": p.get("owned", False)} for p in parts],
         price_breakdown={p["type"]: p.get("price") for p in parts},
-        benchmark_estimate=benchmark, sources=package.get("sources", []),
+        sources=package.get("sources", []),
         partial_result=agent_result.get("status") != "complete" or bool(degraded),
-        degraded_services=degraded, data_quality=quality, updated_at=package.get("updated_at", datetime.now(timezone.utc).isoformat()),
+        degraded_services=degraded,         data_quality={**quality, "budget_is_estimate": True}, updated_at=package.get("updated_at", datetime.now(timezone.utc).isoformat()),
         request_id=body.request_id, correlation_id="", conversation_id=agent_result.get("conversation_id", "")).model_dump()
 
 @app.get("/health")

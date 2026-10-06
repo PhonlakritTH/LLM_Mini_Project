@@ -5,8 +5,7 @@ class Settings(BaseSettings):
     canonical_schema_version: str = "1.0"
     default_currency: str = "THB"
     price_freshness_seconds: int = 900
-    stock_freshness_seconds: int = 300
-    benchmark_freshness_seconds: int = 2592000
+    spec_freshness_seconds: int = 31536000
     quality_weight_freshness: float = 0.4
     quality_weight_coverage: float = 0.4
     quality_weight_completeness: float = 0.2

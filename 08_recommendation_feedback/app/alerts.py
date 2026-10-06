@@ -1,4 +1,4 @@
-"""Price/stock alert dedup + cooldown, consent-gated."""
+"""Price-reference alert dedup + cooldown, consent-gated."""
 import time
 from .config import settings
 _last_sent: dict[str, float] = {}

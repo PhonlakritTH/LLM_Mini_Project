@@ -3,11 +3,11 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 class RawRecord(BaseModel):
-    """What module 04 sends: one of price/stock/benchmark/spec, already canonical-shaped but unvalidated as a set."""
-    kind: Literal["price", "stock", "benchmark", "spec"]
+    """Normalized price-reference or component-spec evidence."""
+    kind: Literal["price", "spec"]
     part_id: str
     source: str
-    authority: Literal["manufacturer", "retailer"] = "retailer"
+    authority: Literal["manufacturer", "price_reference"] = "price_reference"
     fetched_at: str
     observed_at: str
     expires_at: str
@@ -15,15 +15,17 @@ class RawRecord(BaseModel):
 
 class QualityFlag(BaseModel):
     part_id: str
-    flag: Literal["missing", "stale", "conflicting", "inferred", "out_of_stock"]
+    flag: Literal["missing", "stale", "conflicting", "inferred"]
     detail: str
 
 class PartRecord(BaseModel):
     part_id: str
+    knowledge_id: Optional[str] = None
     category: str
     price: Optional[int] = None
     price_thb: Optional[int] = None
-    in_stock: Optional[bool] = None
+    price_low: Optional[int] = None
+    price_high: Optional[int] = None
     performance_index: Optional[float] = None
     socket: Optional[str] = None
     chipset: Optional[str] = None
@@ -31,6 +33,10 @@ class PartRecord(BaseModel):
     wattage_draw: Optional[int] = None
     performance_tier: Optional[str] = None
     compatibility_group: Optional[str] = None
+    specs: dict = {}
+    spec_sources: list[str] = []
+    price_observed_at: Optional[str] = None
+    price_source: Optional[str] = None
     owned: bool = False
     degraded: bool = False
     lineage: dict[str, list[str]] = {}   # field -> list of source ids that contributed

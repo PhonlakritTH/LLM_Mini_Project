@@ -1,4 +1,4 @@
-"""Short-term cache keyed by part_id/retailer/currency/schema_version. Stand-in for Redis."""
+"""Short-term cache keyed by component IDs, search terms, locale and schema version."""
 import time
 
 class TTLCache:

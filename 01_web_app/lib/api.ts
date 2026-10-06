@@ -9,15 +9,15 @@ export type BuildResponse = {
   confidence: number | null;
   summary: string;
   reasons: string[];
+  limitations: string[];
   conflicts: string[];
   suggested_fix: string | null;
-  parts_list: { type: string; name: string; price: number | null; in_stock: boolean | null; source: string | null; product_url: string | null; owned: boolean }[];
+  parts_list: { type: string; name: string; price: number | null; price_low: number | null; price_high: number | null; price_source: string | null; spec_source: string | null; owned: boolean }[];
   price_breakdown: Record<string, number | null>;
-  benchmark_estimate: { relative_score?: number; est_fps_1080p?: number } | null;
   sources: string[];
   partial_result: boolean;
   degraded_services: string[];
-  data_quality: { total_price?: number | null };
+  data_quality: { total_price?: number | null; total_price_range?: { low: number; high: number; currency: string } | null; budget_is_estimate?: boolean; budget_fit?: string; price_reference_source?: string; price_reference_note?: string; price_reference_observed_at?: string | null };
   updated_at: string;
   conversation_id: string;
 };

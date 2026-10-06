@@ -13,9 +13,13 @@ class ToolFailed(Exception):
 class TransientError(Exception): ...
 
 # ---- output contracts (extra fields from untrusted services are dropped) ----
-class PriceOut(BaseModel): prices: dict[str, int]; as_of: str; source: str; missing: list[str] = []; links: dict[str, str] = {}; retailers: dict[str, str] = {}; records: list[dict] = []
-class StockOut(BaseModel): stock: dict[str, bool]; as_of: str; source: str; missing: list[str] = []; records: list[dict] = []
-class BenchOut(BaseModel): relative_score: float; est_fps_1080p: float; source: str; records: list[dict] = []
+class PriceOut(BaseModel):
+    prices: dict[str, int]
+    ranges: dict[str, tuple[int, int]] = {}
+    as_of: str
+    source: str
+    missing: list[str] = []
+    records: list[dict] = []
 
 @dataclass
 class ToolSpec:
@@ -23,8 +27,6 @@ class ToolSpec:
 
 TOOLS: dict[str, ToolSpec] = {
     "price": ToolSpec(PriceOut, "price_service_url", "/v1/external/query", "price"),
-    "stock": ToolSpec(StockOut, "stock_service_url", "/v1/external/query", "stock"),
-    "benchmark": ToolSpec(BenchOut, "benchmark_service_url", "/v1/external/query", "benchmark"),
 }
 _breakers: dict[str, dict] = {}   # bulkhead: state is per tool
 BREAKER_THRESHOLD, BREAKER_COOLDOWN = 3, 30.0
@@ -47,7 +49,8 @@ async def call_tool(state: AgentState, name: str, payload: dict) -> dict:
     if not url:
         raise ToolFailed(name, "provider_not_configured")
     names = payload.get("names", [])
-    request_payload = {"part_ids": names, "fields": [spec.field], "locale": state.request.locale}
+    request_payload = {"part_ids": names, "fields": [spec.field], "locale": state.request.locale,
+                       "search_terms": payload.get("search_terms", {})}
     for attempt in range(3):
         timeout = min(settings.tool_timeout, state.time_left())
         if timeout <= 0: raise BudgetExceeded("time")
@@ -63,37 +66,17 @@ async def call_tool(state: AgentState, name: str, payload: dict) -> dict:
             if name == "price":
                 listings = response.get("prices", [])
                 values = {item["part_id"]: item["price"] for item in listings}
-                data = {"prices": values, "as_of": max((item["fetched_at"] for item in listings), default=""),
+                ranges = {item["part_id"]: (item.get("low_price", item["price"]), item.get("high_price", item["price"]))
+                          for item in listings}
+                data = {"prices": values, "ranges": ranges, "as_of": max((item["fetched_at"] for item in listings), default=""),
                     "source": ", ".join(sorted({item["source"] for item in listings})),
                     "missing": sorted(set(names) - set(values)),
-                    "links": {item["part_id"]: item["product_url"] for item in listings if item.get("product_url")},
-                    "retailers": {item["part_id"]: item["retailer"] for item in listings},
                     "records": [{"kind": "price", "part_id": item["part_id"], "source": item["source"],
-                         "authority": "retailer", "fetched_at": item["fetched_at"],
+                         "authority": "price_reference", "fetched_at": item["fetched_at"],
                          "observed_at": item["observed_at"], "expires_at": item["expires_at"],
-                         "fields": {"price": item["price"]}} for item in listings]}
-            elif name == "stock":
-                listings = response.get("stock", [])
-                values = {item["part_id"]: item["in_stock"] for item in listings}
-                data = {"stock": values, "as_of": max((item["fetched_at"] for item in listings), default=""),
-                    "source": ", ".join(sorted({item["source"] for item in listings})),
-                    "missing": sorted(set(names) - set(values)),
-                    "records": [{"kind": "stock", "part_id": item["part_id"], "source": item["source"],
-                             "authority": "retailer", "fetched_at": item["fetched_at"],
-                             "observed_at": item["observed_at"], "expires_at": item["expires_at"],
-                             "fields": {"in_stock": item["in_stock"]}} for item in listings]}
-            else:
-                scores = response.get("benchmarks", [])
-                if not scores: raise ToolFailed(name, "provider_unavailable")
-                score = sum(item["performance_index"] for item in scores) / len(scores)
-                fps = [item["game_fps_1080p"] for item in scores if item.get("game_fps_1080p") is not None]
-                data = {"relative_score": score, "est_fps_1080p": sum(fps) / len(fps) if fps else 0.0,
-                    "source": ", ".join(sorted({item["source"] for item in scores})),
-                    "records": [{"kind": "benchmark", "part_id": item["part_id"], "source": item["source"],
-                             "authority": "retailer", "fetched_at": item["fetched_at"],
-                             "observed_at": item["observed_at"], "expires_at": item["expires_at"],
-                             "fields": {"performance_index": item["performance_index"],
-                                "game_fps_1080p": item.get("game_fps_1080p")}} for item in scores]}
+                         "fields": {"price": item["price"], "low_price": item.get("low_price", item["price"]),
+                                    "high_price": item.get("high_price", item["price"]),
+                                    "observation_count": item.get("observation_count", 1)}} for item in listings]}
             out = spec.out(**data).model_dump()                  # schema-validate untrusted output
             _record(name, True); return out
         except ToolFailed:

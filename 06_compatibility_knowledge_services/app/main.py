@@ -34,8 +34,8 @@ def knowledge_assess(req: KnowledgeRequest, x_internal_token: str = Header(defau
         evidence = RetrievedEvidence(query=query, passages=[], found=False, confidence=0.0,
                                      collection_version=settings.collection_version)
         alt = AlternativeBuildOptions(options=[], excluded=[])
-        degraded_services.extend(["rag_provider_unavailable", "alternatives_provider_unavailable"])
-    if compat.status == "NEEDS_REVIEW" and "unknown_socket_data" in compat.reason_codes:
+        # Optional retrieval and alternative suggestions do not block a compatibility assessment.
+    if compat.status == "NEEDS_REVIEW":
         degraded_services.append("compatibility_model")
     degraded = bool(degraded_services)
     return KnowledgeResponse(compatibility=compat, evidence=evidence, alternatives=alt, degraded=degraded,

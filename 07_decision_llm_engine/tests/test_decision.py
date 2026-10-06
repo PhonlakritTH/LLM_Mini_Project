@@ -5,7 +5,7 @@ from app.models import DecisionRequest
 
 def req(**k):
     base = dict(request_id="r1", budget=50000,
-               parts=[{"price": 40000, "in_stock": True}],
+               parts=[{"price": 40000, "owned": False}],
                compatibility={"status": "COMPATIBLE", "score": 0.9, "uncertainty": 0.05, "hard_override": False, "reason_codes": []},
                alternatives={"options": []}, evidence={"passages": []})
     base.update(k); return DecisionRequest(**base)
@@ -26,19 +26,21 @@ async def test_swap_when_incompatible_but_alternative_exists():
     assert r.action_code == "SWAP_COMPONENT"
 
 async def test_over_budget_waits_without_alternative():
-    r = await evaluate(req(budget=10000, parts=[{"price": 40000, "in_stock": True}]), x_internal_token=settings.internal_token)
-    assert r.action_code == "WAIT_FOR_PRICE_DROP"
-
-async def test_stock_unknown_waits():
-    r = await evaluate(req(parts=[{"price": 40000, "in_stock": None}]), x_internal_token=settings.internal_token)
-    assert r.action_code == "WAIT_FOR_PRICE_DROP"
+    r = await evaluate(req(budget=10000, parts=[{"price": 40000, "owned": False}]), x_internal_token=settings.internal_token)
+    assert r.action_code == "RECONFIGURE_BUILD"
 
 async def test_unknown_price_waits_without_reporting_zero_total():
-    r = await evaluate(req(parts=[{"price": None, "in_stock": None}], degraded_services=["price"]),
+    r = await evaluate(req(parts=[{"price": None, "owned": False}], degraded_services=["price"]),
                        x_internal_token=settings.internal_token)
-    assert r.action_code == "WAIT_FOR_PRICE_DROP"
-    assert any("Total price is unavailable" in reason for reason in r.reasons)
+    assert r.action_code == "NEEDS_PRICE_DATA"
+    assert any("Reference price data is incomplete" in reason for reason in r.reasons)
     assert all("Total 0 THB" not in reason for reason in r.reasons)
+
+async def test_overlapping_reference_range_needs_price_data():
+    r = await evaluate(req(budget=50000, parts=[{"price": 45000, "owned": False}],
+                           data_quality={"total_price_range": {"low": 45000, "high": 55000}}),
+                       x_internal_token=settings.internal_token)
+    assert r.action_code == "NEEDS_PRICE_DATA"
 
 async def test_incompatible_never_finalizes_even_with_weak_alternative_signal(monkeypatch):
     # monotonic safety: hard_override always blocks FINALIZE_BUILD regardless of anything else

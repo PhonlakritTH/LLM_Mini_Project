@@ -1,49 +1,98 @@
-"""Explainable baseline + hard rule overrides. Recall on INCOMPATIBLE matters more than precision:
-a false 'compatible' can break a build, so ties lean toward NEEDS_REVIEW rather than COMPATIBLE."""
+"""Compatibility rules that require sourced specifications for a pass result."""
 from .config import settings
 from .models import CompatibilityAssessment
 
-def _features(parts: list[dict], constraints: dict) -> dict:
-    by = {p["type"] if "type" in p else p.get("category"): p for p in parts}
-    cpu, mb, gpu, psu = by.get("cpu"), by.get("motherboard"), by.get("gpu"), by.get("psu")
-    watts = (cpu.get("wattage_draw") or 65 if cpu else 0) + (gpu.get("wattage_draw") or gpu.get("watts") or 0 if gpu else 0) + 100
-    return {"cpu": cpu, "mb": mb, "gpu": gpu, "psu": psu, "need_watts": watts,
-            "max_watts": constraints.get("max_wattage"), "case_ff": constraints.get("case_form_factor")}
 
 def assess(parts: list[dict], constraints: dict) -> CompatibilityAssessment:
-    f = _features(parts, constraints)
-    reasons, hard = [], False
-    cpu_sock = (f["cpu"] or {}).get("socket")
-    mb_sock = (f["mb"] or {}).get("socket") or (f["mb"] or {}).get("compatibility_group", "").split("|")[0] or None
-    score, uncertainty = 0.95, 0.05
+    by = {part.get("category", part.get("type")): part for part in parts}
+    cpu, board, ram = by.get("cpu"), by.get("motherboard"), by.get("ram")
+    gpu, psu, case = by.get("gpu"), by.get("psu"), by.get("case")
+    specs = {kind: (part or {}).get("specs", {}) for kind, part in {
+        "cpu": cpu, "motherboard": board, "ram": ram, "gpu": gpu, "psu": psu, "case": case,
+    }.items()}
+    conflicts: list[str] = []
+    unknown: list[str] = []
 
-    if f["cpu"] and f["mb"]:
-        if not cpu_sock or not mb_sock:
-            score, uncertainty = 0.5, 0.35
-            reasons.append("unknown_socket_data")
-        elif cpu_sock != mb_sock:
-            score, uncertainty, hard = 0.02, 0.05, True
-            reasons.append(f"socket_mismatch:{cpu_sock}!={mb_sock}")
-    psu_watts = (f["psu"] or {}).get("wattage") or (f["psu"] or {}).get("wattage_draw")
-    if psu_watts:
-        headroom = psu_watts - f["need_watts"]
-        if headroom < 0:
-            score, uncertainty, hard = min(score, 0.03), 0.05, True
-            reasons.append(f"psu_insufficient:{psu_watts}W<{f['need_watts']}W")
-        elif headroom < f["need_watts"] * 0.2:
-            score = min(score, 0.55)
-            reasons.append(f"psu_low_headroom:{psu_watts}W~{f['need_watts']}W")
-    if f["max_watts"] and f["need_watts"] > f["max_watts"]:
-        score = min(score, 0.5)
-        reasons.append(f"exceeds_wattage_limit:{f['need_watts']}W>{f['max_watts']}W")
-    if f["case_ff"] == "ITX" and f["mb"] and (f["mb"].get("form_factor") or "mATX") != "ITX":
-        score, uncertainty, hard = 0.02, 0.05, True
-        reasons.append("case_form_factor_conflict")
+    for required in ("cpu", "motherboard", "ram", "psu", "case"):
+        if required not in by:
+            unknown.append(f"required_component_missing:{required}")
 
-    thresholds = (settings.value_threshold_compatible, settings.value_threshold_needs_review)
-    status = "INCOMPATIBLE" if hard else ("COMPATIBLE" if score >= thresholds[0] else
-             "NEEDS_REVIEW" if score >= thresholds[1] else "INCOMPATIBLE")
-    if not reasons: reasons.append("all_checks_passed")
-    return CompatibilityAssessment(status=status, score=round(score, 3), uncertainty=uncertainty, reason_codes=reasons,
-                                   hard_override=hard, model_version=settings.model_version,
+    def sourced(*selected: dict | None) -> bool:
+        return all(part and part.get("spec_sources") for part in selected)
+
+    if cpu and board:
+        cpu_socket, board_socket = specs["cpu"].get("socket"), specs["motherboard"].get("socket")
+        if cpu_socket and board_socket and cpu_socket != board_socket:
+            conflicts.append(f"socket_mismatch:{cpu_socket}!={board_socket}")
+        if not cpu_socket or not board_socket or not sourced(cpu, board):
+            unknown.append("CPU/motherboard socket data is missing or has no source.")
+        supported = specs["motherboard"].get("supported_cpu_ids")
+        if (not supported or specs["motherboard"].get("cpu_support_list_status") != "verified"
+                or not cpu.get("knowledge_id")):
+            unknown.append("Motherboard CPU support-list evidence is missing.")
+        elif cpu["knowledge_id"] not in supported:
+            conflicts.append("cpu_not_in_motherboard_support_list")
+        if specs["motherboard"].get("bios_version_status") != "verified":
+            unknown.append("Motherboard BIOS version support has not been verified.")
+
+    memory_types = (specs["cpu"].get("memory_type"), specs["motherboard"].get("memory_type"),
+                    specs["ram"].get("memory_type"))
+    if not all(memory_types) or not sourced(cpu, board, ram):
+        unknown.append("CPU, motherboard, or RAM generation lacks sourced data.")
+    elif len(set(memory_types)) != 1:
+        conflicts.append(f"memory_type_mismatch:{'/'.join(memory_types)}")
+    if board and specs["motherboard"].get("ram_qvl_status") != "verified":
+        unknown.append("Exact memory-kit QVL validation has not been verified.")
+
+    cpu_watts, gpu_watts = specs["cpu"].get("wattage_draw"), specs["gpu"].get("wattage_draw")
+    psu_watts = specs["psu"].get("wattage")
+    system_target = (cpu_watts or 0) + (gpu_watts or 0) + 150
+    if cpu and (cpu_watts is None or not sourced(cpu)):
+        unknown.append("cpu_power_requirement_unknown")
+    if gpu and (gpu_watts is None or not sourced(gpu)):
+        unknown.append("gpu_power_requirement_unknown")
+    if psu:
+        if psu_watts is None or not sourced(psu):
+            unknown.append("psu_capacity_unknown")
+        elif psu_watts < system_target:
+            conflicts.append(f"psu_insufficient:{psu_watts}W<{system_target}W")
+        elif psu_watts < system_target * 1.2:
+            unknown.append("psu_headroom_below_20_percent")
+
+    required_connectors = specs["gpu"].get("power_connectors", [])
+    available_connectors = specs["psu"].get("power_connectors", [])
+    if gpu and required_connectors:
+        if not available_connectors or not sourced(gpu, psu):
+            unknown.append("gpu_psu_connector_evidence_missing")
+        elif any(connector not in available_connectors for connector in required_connectors):
+            conflicts.append("gpu_psu_connector_mismatch")
+
+    if gpu and case:
+        gpu_length = specs["gpu"].get("length_mm")
+        case_limit = specs["case"].get("max_gpu_length_mm")
+        if gpu_length is None or case_limit is None or not sourced(gpu, case):
+            unknown.append("case_gpu_clearance_unknown")
+        elif gpu_length > case_limit:
+            conflicts.append(f"gpu_exceeds_case_clearance:{gpu_length}>{case_limit}")
+
+    if board and case:
+        board_form = specs["motherboard"].get("form_factor")
+        supported_forms = specs["case"].get("form_factor_support")
+        if not board_form or not supported_forms or not sourced(board, case):
+            unknown.append("case_motherboard_form_factor_unknown")
+        elif board_form not in supported_forms:
+            conflicts.append(f"case_does_not_support:{board_form}")
+
+    if constraints.get("max_wattage") and system_target > constraints["max_wattage"]:
+        unknown.append(f"requested_power_limit_exceeded:{system_target}>{constraints['max_wattage']}")
+
+    status = "INCOMPATIBLE" if conflicts else "NEEDS_REVIEW" if unknown else "COMPATIBLE"
+    score = 0.0 if conflicts else 0.5 if unknown else 1.0
+    uncertainty = 0.0 if conflicts else 0.5 if unknown else 0.0
+    reasons = conflicts + unknown
+    if not reasons:
+        reasons.append("all_sourced_checks_passed")
+    return CompatibilityAssessment(status=status, score=score, uncertainty=uncertainty,
+                                   reason_codes=reasons, hard_override=bool(conflicts),
+                                   model_version=settings.model_version,
                                    feature_schema_version=settings.feature_schema_version)

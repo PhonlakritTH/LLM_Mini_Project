@@ -16,14 +16,25 @@ async def evaluate(req: DecisionRequest, x_internal_token: str = Header(default=
 
     trace = [f"request_id={req.request_id}"]
     compat = req.compatibility
-    price_unknown = any(p.get("price") is None for p in req.parts)
-    total = sum(p.get("price") or 0 for p in req.parts)
-    stock_unknown = any(p.get("in_stock") is None for p in req.parts)
+    required_parts = [p for p in req.parts if not p.get("owned", False)]
+    price_unknown = any(p.get("price") is None for p in required_parts)
+    total = sum(p["price"] for p in required_parts) if not price_unknown else 0
+    price_range = req.data_quality.get("total_price_range") or {}
+    range_low, range_high = price_range.get("low"), price_range.get("high")
+    range_over_budget = range_high is not None and range_high > req.budget
+    range_overlaps_budget = (range_low is not None and range_high is not None and
+                             range_low <= req.budget < range_high)
     good_alt = bool(req.alternatives.get("options")) and any(o.get("price_delta", 1) <= 0 or o.get("value_score", 0) > 0 for o in req.alternatives.get("options", []))
-    price_high = "price" in req.degraded_services or price_unknown
+    price_uncertain = ("price" in req.degraded_services or price_unknown or range_overlaps_budget)
+    decision_total = range_high if range_over_budget and not range_overlaps_budget else total
+    if range_low is not None and range_high is not None:
+        if range_over_budget and not range_overlaps_budget:
+            decision_total = range_high
+        elif total:
+            decision_total = min(range_high, total)
 
-    action, compat_bucket, fired = decide(req.budget, total, compat.get("status", "NEEDS_REVIEW"),
-                                          compat.get("hard_override", False), stock_unknown, good_alt, price_high)
+    action, compat_bucket, fired = decide(req.budget, decision_total, compat.get("status", "NEEDS_REVIEW"),
+                                          compat.get("hard_override", False), price_unknown, good_alt, price_uncertain)
     trace += fired
     missing_evidence = bool(req.degraded_services) or not req.data_quality.get("freshness_ok", True)
     conflicting = any(f.get("flag") == "conflicting" for f in req.data_quality.get("flags", []))
@@ -32,9 +43,11 @@ async def evaluate(req: DecisionRequest, x_internal_token: str = Header(default=
 
     reasons_in = [f"reason_code:{r}" for r in compat.get("reason_codes", [])]
     if price_unknown:
-        reasons_in.append("Total price is unavailable; it cannot be compared with the budget.")
+        reasons_in.append("Reference price data is incomplete; budget fit cannot be verified.")
+    elif range_low is not None and range_high is not None:
+        reasons_in.append(f"Reference range {range_low:,}-{range_high:,} THB vs budget {req.budget:,} THB.")
     else:
-        reasons_in.append(f"Total {total:,} THB vs budget {req.budget:,} THB.")
+        reasons_in.append(f"Reference total {total:,} THB vs budget {req.budget:,} THB.")
     wattage_warning = next((f"⚠ {r}" for r in compat.get("reason_codes", []) if "psu" in r or "wattage" in r), None)
 
     evidence_package = {"compatibility": compat, "alternatives": req.alternatives.get("options", [])[:3],

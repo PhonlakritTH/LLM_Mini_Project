@@ -1,0 +1,132 @@
+[
+  {
+    "part_id": "cpu-amd-ryzen-5-5600",
+    "type": "cpu",
+    "name": "AMD Ryzen 5 5600",
+    "search_terms": ["amd", "ryzen", "5600"],
+    "brand": "amd",
+    "rank": 1,
+    "specs": {"socket": "AM4", "memory_type": "DDR4", "wattage_draw": 65, "cores": 6, "threads": 12, "integrated_graphics": false},
+    "source": "https://www.amd.com/en/products/cpu/amd-ryzen-5-5600"
+  },
+  {
+    "part_id": "cpu-amd-ryzen-5-7600",
+    "type": "cpu",
+    "name": "AMD Ryzen 5 7600",
+    "search_terms": ["amd", "ryzen", "7600"],
+    "brand": "amd",
+    "rank": 2,
+    "specs": {"socket": "AM5", "memory_type": "DDR5", "wattage_draw": 65, "cores": 6, "threads": 12, "integrated_graphics": true},
+    "source": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600.html"
+  },
+  {
+    "part_id": "cpu-intel-core-i5-12400",
+    "type": "cpu",
+    "name": "Intel Core i5-12400",
+    "search_terms": ["intel", "i5", "12400"],
+    "brand": "intel",
+    "rank": 1,
+    "specs": {"socket": "LGA1700", "memory_type": "DDR4", "wattage_draw": 65, "cores": 6, "threads": 12, "integrated_graphics": true},
+    "source": "https://www.intel.com/content/www/us/en/products/sku/134586/intel-core-i512400-processor-18m-cache-up-to-4-40-ghz/specifications.html"
+  },
+  {
+    "part_id": "board-am4-msi-b550m-pro-vdh-wifi",
+    "type": "motherboard",
+    "name": "MSI B550M PRO-VDH WIFI",
+    "search_terms": ["msi", "b550m", "pro", "vdh"],
+    "brand": "msi",
+    "rank": 1,
+    "specs": {"socket": "AM4", "memory_type": "DDR4", "form_factor": "mATX", "supported_cpu_ids": ["cpu-amd-ryzen-5-5600"], "cpu_support_list_status": "not_verified", "bios_version_status": "not_verified", "ram_qvl_status": "not_verified"},
+    "source": "https://www.msi.com/Motherboard/B550M-PRO-VDH-WIFI"
+  },
+  {
+    "part_id": "board-am5-msi-pro-b650m-a-wifi",
+    "type": "motherboard",
+    "name": "MSI PRO B650M-A WIFI",
+    "search_terms": ["msi", "b650m", "pro"],
+    "brand": "msi",
+    "rank": 1,
+    "specs": {"socket": "AM5", "memory_type": "DDR5", "form_factor": "mATX", "supported_cpu_ids": ["cpu-amd-ryzen-5-7600"], "cpu_support_list_status": "not_verified", "bios_version_status": "not_verified", "ram_qvl_status": "not_verified"},
+    "source": "https://www.msi.com/Motherboard/PRO-B650M-A-WIFI"
+  },
+  {
+    "part_id": "board-lga1700-msi-pro-b760m-a-wifi-ddr4",
+    "type": "motherboard",
+    "name": "MSI PRO B760M-A WIFI DDR4",
+    "search_terms": ["msi", "b760m", "pro", "ddr4"],
+    "brand": "msi",
+    "rank": 1,
+    "specs": {"socket": "LGA1700", "memory_type": "DDR4", "form_factor": "mATX", "supported_cpu_ids": ["cpu-intel-core-i5-12400"], "cpu_support_list_status": "not_verified", "bios_version_status": "not_verified", "ram_qvl_status": "not_verified"},
+    "source": "https://www.msi.com/Motherboard/PRO-B760M-A-WIFI-DDR4"
+  },
+  {
+    "part_id": "ram-ddr4-kingston-fury-beast-32gb",
+    "type": "ram",
+    "name": "Kingston FURY Beast 32GB (2x16GB) DDR4-3200 KF432C16BBK2/32",
+    "search_terms": ["kingston", "fury", "beast", "32gb", "ddr4"],
+    "brand": "kingston",
+    "rank": 1,
+    "specs": {"memory_type": "DDR4", "capacity_gb": 32, "modules": 2},
+    "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr4-memory"
+  },
+  {
+    "part_id": "ram-ddr5-kingston-fury-beast-32gb",
+    "type": "ram",
+    "name": "Kingston FURY Beast 32GB (2x16GB) DDR5-6000 KF560C36BBEK2-32",
+    "search_terms": ["kingston", "fury", "beast", "32gb", "ddr5"],
+    "brand": "kingston",
+    "rank": 1,
+    "specs": {"memory_type": "DDR5", "capacity_gb": 32, "modules": 2},
+    "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr5-memory"
+  },
+  {
+    "part_id": "gpu-nvidia-msi-rtx-4060-ventus-2x",
+    "type": "gpu",
+    "name": "MSI GeForce RTX 4060 VENTUS 2X BLACK 8G OC",
+    "search_terms": ["msi", "rtx", "4060", "ventus"],
+    "brand": "nvidia",
+    "rank": 2,
+    "specs": {"wattage_draw": 115, "vram_gb": 8, "length_mm": 199, "power_connectors": ["8-pin"]},
+    "source": "https://www.msi.com/Graphics-Card/GeForce-RTX-4060-VENTUS-2X-BLACK-8G-OC"
+  },
+  {
+    "part_id": "gpu-amd-sapphire-pulse-rx-7600",
+    "type": "gpu",
+    "name": "SAPPHIRE PULSE Radeon RX 7600 8GB",
+    "search_terms": ["sapphire", "pulse", "rx", "7600"],
+    "brand": "amd",
+    "rank": 1,
+    "specs": {"wattage_draw": 165, "vram_gb": 8, "length_mm": 240, "power_connectors": ["8-pin"]},
+    "source": "https://www.sapphiretech.com/en/consumer/pulse-radeon-rx-7600-8g-gddr6"
+  },
+  {
+    "part_id": "storage-wd-blue-sn580-1tb",
+    "type": "storage",
+    "name": "WD Blue SN580 1TB NVMe SSD",
+    "search_terms": ["wd", "sn580", "1tb"],
+    "brand": "wd",
+    "rank": 1,
+    "specs": {"capacity_gb": 1000, "interface": "M.2 NVMe"},
+    "source": "https://www.westerndigital.com/products/internal-drives/wd-blue-sn580-nvme-ssd"
+  },
+  {
+    "part_id": "psu-corsair-cv650",
+    "type": "psu",
+    "name": "Corsair CV650 650W",
+    "search_terms": ["corsair", "cv650"],
+    "brand": "corsair",
+    "rank": 1,
+    "specs": {"wattage": 650, "power_connectors": ["8-pin"]},
+    "source": "https://www.corsair.com/us/en/p/psu/cp-9020236-na/cv-series-cv650-650-watt-80-plus-bronze-certified-psu-cp-9020236-na"
+  },
+  {
+    "part_id": "case-msi-mag-forge-m100a",
+    "type": "case",
+    "name": "MSI MAG FORGE M100A",
+    "search_terms": ["msi", "forge", "m100a"],
+    "brand": "msi",
+    "rank": 1,
+    "specs": {"form_factor_support": ["mATX", "Mini-ITX"], "max_gpu_length_mm": 300},
+    "source": "https://www.msi.com/PC-Case/MAG-FORGE-M100A"
+  }
+]

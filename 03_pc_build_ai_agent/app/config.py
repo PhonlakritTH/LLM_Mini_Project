@@ -11,8 +11,7 @@ class Settings(BaseSettings):
     tool_timeout: float = 5
     retry_base_delay: float = 0.2
     price_service_url: str = ""
-    stock_service_url: str = ""
-    benchmark_service_url: str = ""
+    knowledge_database_path: str = "data/components.sqlite3"
     rag_service_url: str = ""
     alternatives_service_url: str = ""
     prompt_version: str = "p1"

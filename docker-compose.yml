@@ -28,8 +28,6 @@ services:
     environment:
       INTERNAL_TOKEN: dev-internal
       PRICE_SERVICE_URL: http://external_data:8200
-      STOCK_SERVICE_URL: http://external_data:8200
-      BENCHMARK_SERVICE_URL: http://external_data:8200
       RAG_SERVICE_URL: http://compat_knowledge:8400
       ALTERNATIVES_SERVICE_URL: http://compat_knowledge:8400
     depends_on: [external_data]

@@ -4,3 +4,4 @@
 **/.next/
 **/__pycache__/
 **/*.py[cod]
+03_pc_build_ai_agent/data/*.sqlite3

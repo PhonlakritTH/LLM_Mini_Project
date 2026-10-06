@@ -7,8 +7,8 @@ import { formSchema, FormValues, normalize, USE_CASES, PART_TYPES } from "@/lib/
 import { requestBuild, ApiFail, BuildResponse } from "@/lib/api";
 
 const ACTIONS: Record<string, string> = {
-  finalize_build: "จัดสเปกนี้ได้", swap_component: "ควรเปลี่ยนชิ้นส่วน",
-  wait_for_price_drop: "รอข้อมูลหรือราคา", avoid_combination: "ไม่ควรใช้ชุดนี้ร่วมกัน",
+  finalize_build: "ชุดสเปกอยู่ในงบ", swap_component: "ปรับชุดสเปก",
+  reconfigure_build: "ชุดสเปกเกินงบ", needs_price_data: "ยังประเมินงบไม่ได้", avoid_combination: "ไม่ควรใช้ชุดนี้ร่วมกัน",
 };
 const STATUS: Record<string, [string, string]> = { compatible: ["✓", "เข้ากันได้"], warning: ["!", "ควรตรวจสอบ"], incompatible: ["×", "ไม่เข้ากัน"] };
 const baht = (n: number) => new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(n);
@@ -108,7 +108,7 @@ export default function Page() {
 
   const { register, control, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { budget: 40000, use_case: "gaming", preferred_brand: "any", existing_parts: [], question: "" },
+    defaultValues: { budget: 40000, use_case: "gaming", preferred_brand: "any", preferred_gpu_brand: "any", preferred_cpu_model: "", preferred_gpu_model: "", existing_parts: [], question: "" },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "existing_parts" });
   const [pending, setPending] = useState<ReturnType<typeof normalize> | null>(null); // confirm panel (step 4)
@@ -142,7 +142,7 @@ export default function Page() {
       <div className="builder-heading">
         <div className="eyebrow"><span /> PC BUILDER</div>
         <h2>เริ่มจากความต้องการของคุณ</h2>
-        <p>บอกงบประมาณและลักษณะการใช้งาน เพื่อเริ่มต้นวางแผนสเปก</p>
+        <p>กำหนดงบ การใช้งาน และรุ่นที่สนใจ เพื่อรับชุดสเปกพร้อมราคาอ้างอิง</p>
       </div>
       <form className="card" onSubmit={handleSubmit((v) => setPending(normalize(v)))} noValidate>
         <h2>ความต้องการ</h2>
@@ -151,10 +151,18 @@ export default function Page() {
         {errors.budget && <p className="err" role="alert">⚠ {errors.budget.message}</p>}
         <label htmlFor="uc">ลักษณะการใช้งาน</label>
         <select id="uc" {...register("use_case")}>{Object.entries(USE_CASES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-        <label htmlFor="br">แบรนด์ที่ต้องการ</label>
+        <label htmlFor="br">แบรนด์ CPU</label>
         <select id="br" {...register("preferred_brand")}>
-          <option value="any">ไม่ระบุ</option><option value="intel">Intel CPU</option><option value="amd">AMD CPU / GPU</option><option value="nvidia">NVIDIA GPU</option>
+          <option value="any">ไม่ระบุ</option><option value="intel">Intel</option><option value="amd">AMD</option>
         </select>
+        <label htmlFor="gpu-brand">แบรนด์ GPU (ไม่บังคับ)</label>
+        <select id="gpu-brand" {...register("preferred_gpu_brand")}>
+          <option value="any">ไม่ระบุ</option><option value="nvidia">NVIDIA</option><option value="amd">AMD Radeon</option>
+        </select>
+        <label htmlFor="cpu-model">รุ่น CPU ที่สนใจ (ไม่บังคับ)</label>
+        <input id="cpu-model" placeholder="เช่น Ryzen 5 7600" {...register("preferred_cpu_model")} />
+        <label htmlFor="gpu-model">รุ่น GPU ที่สนใจ (ไม่บังคับ)</label>
+        <input id="gpu-model" placeholder="เช่น RTX 4060" {...register("preferred_gpu_model")} />
         <label>ชิ้นส่วนที่มีอยู่แล้ว</label>
         {fields.map((f, i) => (
           <div className="row" key={f.id}>
@@ -176,7 +184,7 @@ export default function Page() {
         {pending && (
           <div className="card" style={{ marginBottom: 16 }}>
             <h2>ยืนยันคำขอ</h2>
-            <p>{baht(pending.budget)} · {USE_CASES[pending.use_case]} · {pending.preferred_brand} · ชิ้นส่วนเดิม: {pending.existing_parts.map((p) => p.name).join(", ") || "ไม่มี"}</p>
+            <p>{baht(pending.budget)} · {USE_CASES[pending.use_case]} · CPU: {pending.preferred_brand} · GPU: {pending.preferred_gpu_brand}{pending.preferred_cpu_model && ` · รุ่น CPU: ${pending.preferred_cpu_model}`}{pending.preferred_gpu_model && ` · รุ่น GPU: ${pending.preferred_gpu_model}`} · ชิ้นส่วนเดิม: {pending.existing_parts.map((p) => p.name).join(", ") || "ไม่มี"}</p>
             <button onClick={send} disabled={state === "loading"}>{state === "loading" ? "กำลังตรวจสอบ…" : "จัดสเปก"}</button>{" "}
             <button className="ghost" onClick={() => setPending(null)}>แก้ไข</button>
           </div>
@@ -195,10 +203,9 @@ export default function Page() {
 // All server/LLM text is rendered as plain React text nodes (auto-escaped) — no dangerouslySetInnerHTML.
 function Result({ r }: { r: BuildResponse }) {
   const [icon, label] = STATUS[r.compatibility_status] ?? STATUS.warning;
-  const prices = r.parts_list.map((part) => part.price).filter((price): price is number => price !== null);
-  const max = Math.max(...prices, 1);
   const knownTotal = r.data_quality.total_price;
-  const shownTotal = typeof knownTotal === "number" ? knownTotal : prices.reduce((sum, price) => sum + price, 0);
+  const totalRange = r.data_quality.total_price_range;
+  const shownTotal = typeof knownTotal === "number" ? knownTotal : totalRange ? (totalRange.low + totalRange.high) / 2 : null;
   return (
     <div className="card">
       <h2>{ACTIONS[r.recommendation_code] ?? "ผลการจัดสเปก"}</h2>
@@ -207,15 +214,21 @@ function Result({ r }: { r: BuildResponse }) {
       {r.partial_result && <div className="banner warning">ข้อมูลยังไม่ครบ: {r.degraded_services.join(", ") || "บางบริการ"} ไม่พร้อมใช้งาน</div>}
       {r.conflicts.length > 0 && <div className="banner incompatible"><strong>ข้อขัดแย้ง</strong><ul>{r.conflicts.map((conflict) => <li key={conflict}>{conflict}</li>)}</ul>{r.suggested_fix && <p>วิธีแก้: {r.suggested_fix}</p>}</div>}
       <ul>{r.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+      {r.limitations.length > 0 && <div className="banner warning"><strong>ข้อจำกัดของข้อมูล</strong><ul>{r.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul></div>}
       <table>
-        <thead><tr><th>ชิ้นส่วน</th><th>รุ่น</th><th>สต็อก</th><th className="n">ราคา</th></tr></thead>
+        <thead><tr><th>ชิ้นส่วน</th><th>รุ่นและที่มาสเปก</th><th className="n">ราคาอ้างอิง</th></tr></thead>
         <tbody>{r.parts_list.map((part) => (
-          <tr key={part.type}><td>{part.type}</td><td>{part.product_url ? <a href={part.product_url} target="_blank" rel="noreferrer">{part.name}</a> : part.name}{part.source && <small className="source">{part.source}</small>}</td>
-            <td>{part.in_stock === null ? "ยังไม่ทราบ" : part.in_stock ? "มีสินค้า" : "หมด"}</td>
-            <td className="n">{part.owned ? "มีอยู่แล้ว" : part.price === null ? "ไม่พบราคา" : baht(part.price)}{!part.owned && part.price !== null && <div className="bar" style={{ width: `${(part.price / max) * 100}%` }} />}</td></tr>))}
-          <tr><th colSpan={3}>{typeof knownTotal === "number" ? "รวม" : "ยอดเฉพาะรายการที่พบราคา (ยังไม่ครบ)"}</th><th className="n">{prices.length ? baht(shownTotal) : "ไม่พบราคา"}</th></tr></tbody>
+          <tr key={part.type}><td>{part.type}</td><td>{part.name}
+            {part.spec_source && <small className="source"><a href={part.spec_source} target="_blank" rel="noreferrer">แหล่งสเปกจากผู้ผลิต</a></small>}
+            {part.price_source && <small className="source">{part.price_source}</small>}</td>
+            <td className="n">{part.owned ? "ใช้ชิ้นส่วนเดิม" : part.price_low !== null && part.price_high !== null
+              ? `${baht(part.price_low)} – ${baht(part.price_high)}` : "ไม่มีราคาอ้างอิง"}</td></tr>))}
+          <tr><th colSpan={2}>ราคารวมอ้างอิง (ไม่ใช่ใบเสนอราคา)</th><th className="n">{totalRange
+            ? `${baht(totalRange.low)} – ${baht(totalRange.high)}`
+            : shownTotal !== null ? baht(shownTotal) : "ประเมินไม่ได้: ราคาไม่ครบ"}</th></tr></tbody>
       </table>
-      <details><summary>ผล benchmark</summary>{r.benchmark_estimate ? `คะแนน ${r.benchmark_estimate.relative_score ?? "ไม่ทราบ"}/100 · ประมาณ ${r.benchmark_estimate.est_fps_1080p ?? "ไม่ทราบ"} FPS ที่ 1080p` : "ยังไม่มีแหล่ง benchmark ที่ยืนยันได้"}</details>
+      {r.data_quality.price_reference_note && <p>{r.data_quality.price_reference_note}</p>}
+      {r.data_quality.price_reference_observed_at && <p>ค้นหาราคาอ้างอิงเมื่อ {new Date(r.data_quality.price_reference_observed_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</p>}
       <details><summary>แหล่งข้อมูล</summary>{r.sources.length ? <ul>{r.sources.map((source) => <li key={source}>{source}</li>)}</ul> : "ไม่มีแหล่งข้อมูลที่ยืนยันได้"}</details>
       <p style={{ color: "var(--mute)", fontSize: ".85rem" }}>ปรับปรุงข้อมูล {new Date(r.updated_at).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</p>
     </div>

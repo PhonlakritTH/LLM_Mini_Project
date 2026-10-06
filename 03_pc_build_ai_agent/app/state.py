@@ -22,7 +22,10 @@ class AgentRequest(BaseModel):
     conversation_id: Optional[str] = None
     budget: Optional[int] = Field(default=None, ge=0, le=500000)
     use_case: Optional[Literal["gaming", "video_editing", "office", "streaming", "ai_rendering"]] = None
-    preferred_brand: Literal["intel", "amd", "nvidia", "any"] = "any"
+    preferred_brand: Literal["intel", "amd", "any"] = "any"
+    preferred_gpu_brand: Literal["nvidia", "amd", "any"] = "any"
+    preferred_cpu_model: Optional[str] = Field(default=None, max_length=100)
+    preferred_gpu_model: Optional[str] = Field(default=None, max_length=100)
     existing_parts: list[ExistingPart] = Field(default_factory=list, max_length=10)
     constraints: Constraints = Field(default_factory=Constraints)
     question: str = Field(default="", max_length=500)
@@ -37,6 +40,7 @@ class AgentState(BaseModel):
     assumptions: list[str] = []
     plan: list[str] = []
     parts: list[dict] = []
+    candidate_builds: list[list[dict]] = []
     observations: dict[str, Any] = {}
     data_quality: dict[str, Any] = {}
     compatibility: Optional[dict] = None

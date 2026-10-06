@@ -10,10 +10,11 @@ class PartLine(BaseModel):
     type: str
     name: str
     price: Optional[int] = None
-    in_stock: Optional[bool] = None
+    price_low: Optional[int] = None
+    price_high: Optional[int] = None
+    price_source: Optional[str] = None
+    spec_source: Optional[str] = None
     owned: bool = False
-    product_url: Optional[str] = None
-    source: Optional[str] = None
 
 class AlternativeLine(BaseModel):
     to_part: str
@@ -35,7 +36,7 @@ class FormatRequest(BaseModel):
     conversation_id: str
     user_id: Optional[str] = None
     locale: str = "th-TH"
-    action_code: Literal["FINALIZE_BUILD", "SWAP_COMPONENT", "WAIT_FOR_PRICE_DROP", "AVOID_COMBINATION"]
+    action_code: Literal["FINALIZE_BUILD", "SWAP_COMPONENT", "RECONFIGURE_BUILD", "NEEDS_PRICE_DATA", "AVOID_COMBINATION"]
     compatibility_status: Literal["compatible", "warning", "incompatible"]
     confidence: float
     escalate: bool
@@ -47,6 +48,7 @@ class FormatRequest(BaseModel):
     alternatives: list[AlternativeLine] = []
     degraded_services: list[str] = []
     price_observed_at: Optional[str] = None
+    total_price_range: Optional[dict] = None
     consent_live_updates: bool = False
     versions: dict[str, str] = {}
 

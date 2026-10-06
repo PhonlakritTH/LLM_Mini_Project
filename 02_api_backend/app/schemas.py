@@ -2,7 +2,8 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 UseCase = Literal["gaming", "video_editing", "office", "streaming", "ai_rendering"]
-Brand = Literal["intel", "amd", "nvidia", "any"]
+Brand = Literal["intel", "amd", "any"]
+GpuBrand = Literal["nvidia", "amd", "any"]
 
 class ExistingPart(BaseModel):
     type: Literal["cpu", "motherboard", "ram", "gpu", "psu", "storage", "case"]
@@ -14,6 +15,9 @@ class BuildRequest(BaseModel):
     budget: int = Field(ge=8000, le=500000, description="THB")
     use_case: UseCase
     preferred_brand: Brand = "any"
+    preferred_gpu_brand: GpuBrand = "any"
+    preferred_cpu_model: Optional[str] = Field(default=None, max_length=100)
+    preferred_gpu_model: Optional[str] = Field(default=None, max_length=100)
     existing_parts: list[ExistingPart] = Field(default_factory=list, max_length=10)
     question: str = Field(default="", max_length=500)
     locale: str = "th-TH"
@@ -24,24 +28,25 @@ class Part(BaseModel):
     type: str
     name: str
     price: Optional[int] = None
-    in_stock: Optional[bool] = None   # None = unknown (service degraded)
-    source: Optional[str] = None
-    product_url: Optional[str] = None
+    price_low: Optional[int] = None
+    price_high: Optional[int] = None
+    price_source: Optional[str] = None
+    spec_source: Optional[str] = None
     owned: bool = False
 
 class BuildResponse(BaseModel):
     status: Literal["complete", "needs_info", "degraded", "budget_exhausted"] = "complete"
     questions: list[str] = []
-    recommendation_code: Literal["finalize_build", "swap_component", "wait_for_price_drop", "avoid_combination"]
+    recommendation_code: Literal["finalize_build", "swap_component", "reconfigure_build", "needs_price_data", "avoid_combination"]
     compatibility_status: Literal["compatible", "warning", "incompatible"]
     confidence: Optional[float] = None
     summary: str
     reasons: list[str]
+    limitations: list[str] = []
     conflicts: list[str] = []
     suggested_fix: Optional[str] = None
     parts_list: list[Part]
     price_breakdown: dict[str, Optional[int]]
-    benchmark_estimate: Optional[dict[str, float]] = None
     data_quality: dict = {}
     sources: list[str]
     partial_result: bool = False

@@ -6,6 +6,9 @@ export const formSchema = z.object({
   budget: z.coerce.number({ invalid_type_error: "Enter a number" }).int().min(8000, "Minimum 8,000 THB").max(500000, "Maximum 500,000 THB"),
   use_case: z.enum(["gaming", "video_editing", "office", "streaming", "ai_rendering"]),
   preferred_brand: z.enum(["any", "intel", "amd", "nvidia"]),
+  preferred_gpu_brand: z.enum(["any", "amd", "nvidia"]),
+  preferred_cpu_model: z.string().trim().max(100),
+  preferred_gpu_model: z.string().trim().max(100),
   existing_parts: z.array(z.object({
     type: z.enum(PART_TYPES),
     name: z.string().trim().min(1, "Name required").max(80),
@@ -22,6 +25,8 @@ export function normalize(v: FormValues) {
   return {
     ...v,
     question: v.question.trim(),
+    preferred_cpu_model: v.preferred_cpu_model.trim(),
+    preferred_gpu_model: v.preferred_gpu_model.trim(),
     existing_parts: v.existing_parts.map((p) => ({ ...p, socket: p.socket ? p.socket.toUpperCase().replace(/\s+/g, "") : undefined })),
   };
 }
