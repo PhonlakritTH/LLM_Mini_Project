@@ -1,23 +1,30 @@
 # Module 08: Recommendation and Feedback
 
-## Status
+## หน้าที่และสถานะ
 
-**Partially active in the website request path.** Module 02 sends Module 07's decision here for final formatting. Feedback and safety-queue endpoints remain separate and are not yet called from the website.
+Module 02 เรียก `POST /v1/recommendation/build` เพื่อจัดรูป decision, limitations, setup steps, source references และ verified support contacts เป็น response สำหรับเว็บ. `/v1/feedback` และ `/v1/safety-queue` มี endpoint แต่ยังไม่ได้เชื่อมจากหน้าเว็บ; feedback, queue และ alert cooldown เก็บใน process memory.
 
-## Endpoints and behavior
+ราคา/ลิงก์ null ต้องคง null. ไม่มี warranty placeholder contacts; live alerts ปิดตามค่าเริ่มต้นและยังไม่มี notification provider. `GET /health` ตรวจ service/schema.
 
-All endpoints require `X-Internal-Token` except health:
+## Endpoints
 
-| Method | Path | Purpose |
+| Method | Path | หน้าที่ |
 |---|---|---|
-| `POST` | `/v1/recommendation/build` | Format a decision, limitations, setup steps, source references, and warranty contacts. |
-| `POST` | `/v1/feedback` | Store pseudonymized feedback; unsafe feedback is added to the safety queue. |
-| `GET` | `/v1/safety-queue` | Read the operator review queue. |
-| `GET` | `/health` | Report service/schema health. |
+| `POST` | `/v1/recommendation/build` | format ผลแนะนำและข้อจำกัด |
+| `POST` | `/v1/feedback` | รับ pseudonymized feedback; unsafe feedback ไป review queue |
+| `GET` | `/v1/safety-queue` | อ่าน queue สำหรับ operator |
+| `GET` | `/health` | ตรวจ service/schema |
 
-Feedback, safety queue, and alert cooldown state are process-local memory. Live price alerts are disabled by default and no notification provider is configured. Placeholder warranty numbers were removed; no contacts are returned until a verified directory is configured. Null prices and purchase links are preserved in the formatted parts.
+ทุก endpoint นอกจาก health ต้องใช้ `X-Internal-Token`.
 
-## Run and tests
+## งานเพื่อพร้อมใช้งานจริง
+
+- แสดง source, observed/fetched/expiry timestamps, data quality และ degraded limitations ให้ครบจนถึง UI
+- ต่อ feedback กับ UI โดยมี consent, abuse control, privacy notice และ retention policy ก่อนเก็บข้อมูล
+- ย้าย queue/cooldown/feedback ไป persistent store ที่ควบคุม access, audit และ retention
+- เพิ่ม alerts เฉพาะ provider ที่ได้รับอนุญาตและผู้ใช้ consent; ใช้ verified support contact directory ที่มี source/version
+
+## ตั้งค่าและรัน
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -25,10 +32,4 @@ python -m uvicorn app.main:app --port 8600 --reload
 python -m pytest -q
 ```
 
-Current test result: **11 passed**.
-
-## Remaining work
-
-- Wire the feedback endpoint to the web UI with consent and abuse controls.
-- Persist feedback and safety queue with access controls, retention jobs, and audit history.
-- Add a real consent-aware notification provider and maintain verified warranty contacts.
+ภาพรวมระบบและเกณฑ์ real-data readiness ดู [root README](../README.md); วิธีเปิดทุก service ดู [README_RUN.md](../README_RUN.md).

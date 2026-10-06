@@ -1,5 +1,6 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, Cpu, Gauge, Moon, Sparkles, Sun } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formSchema, FormValues, normalize, USE_CASES, PART_TYPES } from "@/lib/schema";
@@ -12,7 +13,99 @@ const ACTIONS: Record<string, string> = {
 const STATUS: Record<string, [string, string]> = { compatible: ["✓", "เข้ากันได้"], warning: ["!", "ควรตรวจสอบ"], incompatible: ["×", "ไม่เข้ากัน"] };
 const baht = (n: number) => new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(n);
 
+type Theme = "light" | "dark";
+
+function Hero({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
+  return (
+    <section className="hero" id="home">
+      <header className="site-header">
+        <a className="brand" href="#home" aria-label="SPECROOM หน้าแรก">
+          <span className="brand-mark"><Cpu size={19} strokeWidth={2.2} /></span>
+          <span>SPECROOM<span className="brand-period">.</span><small>PC CONFIGURATOR</small></span>
+        </a>
+        <nav className="site-nav" aria-label="เมนูหลัก">
+          <a className="active" href="#home">หน้าแรก</a>
+          <a href="#builder">จัดสเปก</a>
+          <a href="#about">เกี่ยวกับเรา</a>
+        </nav>
+        <div className="header-actions">
+          <a className="header-cta" href="#builder">เริ่มต้นเลย <ArrowUpRight size={15} /></a>
+          <button
+            className="theme-toggle"
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={theme === "dark" ? "เปลี่ยนเป็น Light mode" : "เปลี่ยนเป็น Dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+      </header>
+
+      <div className="hero-content">
+        <div className="hero-copy">
+          <div className="eyebrow"><span /> BUILT AROUND YOU</div>
+          <h1>คอมพิวเตอร์ที่ใช่<br /><span>เริ่มจากสเปกที่ลงตัว</span></h1>
+          <p className="hero-description">
+            ทุกการใช้งานมีสเปกที่เหมาะ ไม่ว่าจะเล่นเกม ทำงานสร้างสรรค์
+            หรือเริ่มต้นกับ AI — วางแผนเครื่องถัดไปของคุณได้ที่นี่
+          </p>
+          <div className="hero-actions">
+            <a className="button-primary" href="#builder">เริ่มจัดสเปก <ArrowDown size={17} /></a>
+            <a className="button-secondary" href="#builder">ดูวิธีการทำงาน <ArrowRight size={16} /></a>
+          </div>
+          <div className="hero-benefits">
+            <div><span className="benefit-number">01</span><span>สเปกตามงบ<br /><small>เลือกได้ตามต้องการ</small></span></div>
+            <div><span className="benefit-number">02</span><span>เช็กความเข้ากันได้<br /><small>ลดปัญหาก่อนประกอบ</small></span></div>
+            <div><span className="benefit-number">03</span><span>มีผู้ช่วยแนะนำ<br /><small>ตัดสินใจได้ง่ายขึ้น</small></span></div>
+          </div>
+        </div>
+
+        <div className="hero-art" aria-label="ภาพจำลองคอมพิวเตอร์สำหรับจัดสเปก" role="img">
+          <div className="art-glow" />
+          <div className="art-label"><span>YOUR NEXT BUILD</span><span>01 — 03</span></div>
+          <div className="pc-tower">
+            <div className="tower-glass">
+              <div className="tower-topline" />
+              <div className="fan fan-one"><i /></div>
+              <div className="fan fan-two"><i /></div>
+              <div className="fan fan-three"><i /></div>
+              <div className="gpu"><span /><span /><span /></div>
+              <div className="motherboard"><i /><i /><i /></div>
+              <div className="tower-light" />
+            </div>
+            <div className="tower-front"><span /><span /><span /><span /></div>
+            <div className="tower-foot" />
+          </div>
+          <div className="art-spec spec-processor"><Cpu size={16} /><span>PROCESSOR<small>Performance, perfected.</small></span><Check size={15} /></div>
+          <div className="art-spec spec-balance"><Gauge size={17} /><span>BUILD BALANCE<small>ทุกชิ้นส่วนลงตัว</small></span></div>
+          <div className="art-caption"><Sparkles size={13} /> DESIGNED FOR WHAT YOU DO</div>
+        </div>
+      </div>
+
+      <a className="scroll-cue" href="#builder"><span>เลื่อนเพื่อเริ่มต้น</span><ArrowDown size={15} /></a>
+    </section>
+  );
+}
+
 export default function Page() {
+  const [theme, setTheme] = useState<Theme>("light");
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem("specroom-theme");
+    const initialTheme: Theme = savedTheme === "light" || savedTheme === "dark"
+      ? savedTheme
+      : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    setTheme(initialTheme);
+    document.documentElement.dataset.theme = initialTheme;
+  }, []);
+
+  function toggleTheme() {
+    const nextTheme: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    window.localStorage.setItem("specroom-theme", nextTheme);
+  }
+
   const { register, control, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { budget: 40000, use_case: "gaming", preferred_brand: "any", existing_parts: [], question: "" },
@@ -43,8 +136,14 @@ export default function Page() {
   }
 
   return (
-    <main>
-      <h1>จัดสเปกคอม<small>ค้นหาราคาและตรวจสอบความเข้ากันได้ตามงบประมาณ</small></h1>
+    <>
+      <Hero theme={theme} onToggleTheme={toggleTheme} />
+      <main className="builder-layout" id="builder">
+      <div className="builder-heading">
+        <div className="eyebrow"><span /> PC BUILDER</div>
+        <h2>เริ่มจากความต้องการของคุณ</h2>
+        <p>บอกงบประมาณและลักษณะการใช้งาน เพื่อเริ่มต้นวางแผนสเปก</p>
+      </div>
       <form className="card" onSubmit={handleSubmit((v) => setPending(normalize(v)))} noValidate>
         <h2>ความต้องการ</h2>
         <label htmlFor="budget">งบประมาณ (บาท)</label>
@@ -87,7 +186,9 @@ export default function Page() {
         {state === "error" && <div className="banner incompatible" role="alert">{msg}</div>}
         {state === "done" && res && <Result r={res} />}
       </section>
-    </main>
+      <footer className="builder-footer" id="about">SPECROOM <span>·</span> วางแผนสเปกคอมในแบบของคุณ</footer>
+      </main>
+    </>
   );
 }
 

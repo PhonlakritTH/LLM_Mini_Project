@@ -1,16 +1,20 @@
 # Module 06: Compatibility and Knowledge Services
 
-## Status
+## หน้าที่และสถานะ
 
-**Active in the website request path.** Module 02 sends it the Module 05 snapshot. Deterministic compatibility rules run; RAG and alternative data are disabled by default and reported unavailable.
+รับ Module 05 snapshot จาก Module 02 และประเมิน compatibility พร้อม evidence/alternatives. กฎ deterministic ที่มีอยู่ตรวจ socket CPU/board, headroom PSU, wattage limit และ case form factor บางกรณี. ไม่ครอบคลุม compatibility matrix เต็ม เช่น CPU BIOS support, RAM generation/QVL, GPU clearance, PSU connectors หรือ radiator fit; ข้อมูลที่ไม่พอควรเป็น needs-review ไม่ใช่ compatible ที่ยืนยันแล้ว.
 
-## Endpoint and current data
+`POST /v1/knowledge/assess` ต้องมี `X-Internal-Token`; `GET /health` รายงาน versions. ค่า `ENABLE_SAMPLE_KNOWLEDGE` ปิดเป็นค่าเริ่มต้น. Default request ไม่คืน sample passages/ราคา alternatives; RAG และ alternative providers ยังไม่มี live implementation และผลจะระบุ degraded.
 
-`POST /v1/knowledge/assess` requires `X-Internal-Token`; `GET /health` reports model/schema versions.
+## ก่อนเปิดใช้ข้อมูลความเข้ากันได้จริง
 
-Compatibility uses deterministic safety rules for socket, PSU headroom, wattage limits, and case form factor. Sample RAG passages and hard-coded alternative prices are not returned in the default request path. Until verified documents and a current catalog/provider are configured, the response returns empty evidence/alternatives and degraded-service flags.
+1. เลือก official/manufacturer sources และสิทธิ์ใช้เอกสาร; เก็บ document URL/ID, section, revision/date และ source lineage
+2. สร้าง versioned compatibility facts/catalog (socket, chipset, CPU support/BIOS, memory type, form factor, clearance, PSU connectors/wattage) พร้อม unit normalization
+3. ใช้ deterministic rules เป็น safety gate; ข้อมูลที่ไม่มีหลักฐานต้องคืน unknown/needs-review
+4. ทำ RAG จากเอกสารที่ตรวจสอบสิทธิ์/รุ่นและอ้าง citation ตรงกับข้อความ; retrieval ช่วยอธิบาย ไม่เป็นแหล่งตัดสิน compatibility เพียงอย่างเดียว
+5. สร้าง alternatives จาก catalog และ offers ที่ตรงรุ่น/compatibility/ราคา freshness ไม่ใช้รายการราคาฝังใน source code
 
-## Run and tests
+## ตั้งค่าและรัน
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -18,10 +22,4 @@ python -m uvicorn app.main:app --port 8400 --reload
 python -m pytest -q
 ```
 
-Current test result: **8 passed**.
-
-## Remaining work
-
-- Load verified manufacturer documents and versioned specs from a maintained source.
-- Replace sample alternative prices with Module 05 catalog/Module 04 live offers.
-- Add verified, versioned documents and live/catalog-backed alternatives, then enable each capability only after source validation.
+เปิด sample mode ไม่ได้ทำให้ข้อมูลกลายเป็นข้อมูลจริง; ห้ามเปิดใน production. แผน end-to-end และ real-data requirements อยู่ใน [root README](../README.md).

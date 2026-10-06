@@ -1,34 +1,29 @@
 # Module 01: Web App
 
-## Status
+## หน้าที่และสถานะ
 
-**Active in the website request flow.** This is a Next.js 16.3.8 App Router app with a Thai-language build form and recommendation results.
+Next.js App Router หน้าเว็บภาษาไทยสำหรับรับความต้องการและแสดงผลตอบกลับจาก Module 02. ปัจจุบันมี Hero, theme light/dark, form งบประมาณ/use case/brand/ชิ้นส่วนเดิม และ panel ผลลัพธ์; ยังไม่มี manual product picker หรือหน้าค้น catalog. UI แสดงราคา/stock ที่ไม่ทราบเป็น unknown และคำเตือนจากผล degraded.
 
-## What works
+เส้นทางข้อมูล: `form -> lib/schema.ts validation/normalization -> lib/api.ts -> Module 02 /v1/builder/recommendations -> render response`. API client ใช้ development token endpoint; ยังไม่ใช่ระบบ login จริง.
 
-- Collects budget, use case, preferred CPU/GPU brand, existing parts, socket, and optional PSU wattage.
-- Validates and normalizes form data in `lib/schema.ts` before submission.
-- Calls Module 02, which orchestrates Modules 03–08; keeps a conversation ID for follow-up requests and supports cancellation/idempotency keys.
-- Shows final decision/compatibility status, conflicts, incomplete-service warnings, product links, and unknown prices/stock without converting missing values to zero.
+## ข้อมูลจริงที่ UI ต้องรองรับ
 
-## Run and verify
+- ไม่ฝังราคา/stock/sample product list ใน frontend; ให้ backend ส่ง product ID, ชื่อรุ่นที่ยืนยัน, แหล่งข้อมูล, URL, observed/fetched time และสถานะ freshness
+- แสดงราคาและสกุลเงินตามข้อมูลที่ provider ระบุ พร้อมแจ้งว่าราคาเปลี่ยนได้และตรวจซ้ำกับร้านก่อนชำระ
+- แสดง unavailable/null แยกจาก `0` และ `มีสินค้า`; แสดง provider/compatibility ข้อจำกัดและข้อมูลขัดแย้งอย่างตรงไปตรงมา
+- งานต่อไป: product picker ที่อ่าน catalog API, แสดงแหล่ง/เวลาอัปเดต, เปรียบเทียบ offers และ browser tests สำหรับฟอร์ม/partial/error states
+
+## ตั้งค่าและรัน
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`. `NEXT_PUBLIC_API_BASE_URL` defaults to `http://localhost:8000` and can be overridden in `.env.local`.
+เปิด `http://localhost:3000`. ค่า API เริ่มต้นคือ `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`; เปลี่ยนใน `.env.local` หาก API อยู่ที่อื่น ห้ามใส่ secret ในตัวแปร `NEXT_PUBLIC_*`.
 
 ```powershell
 npm run build
-npm audit
 ```
 
-There is no automated browser/UI test suite yet. The production build/type check passed and npm audit reported no advisories at the last check. A no-key backend smoke request returned a degraded result with `null` prices/stock.
-
-## Remaining work
-
-- Add browser-level tests for form validation, retry/error states, and partial results.
-- Add clearer input for other compatibility-critical specifications as real catalog data becomes available.
-- Replace the development-token flow through a production identity provider when deploying publicly.
+ไม่มี browser UI test suite ในตอนนี้. วิธีรันทั้งระบบอยู่ที่ root [README_RUN.md](../README_RUN.md); ภาพรวมและสถานะ data providers อยู่ที่ root [README.md](../README.md).
