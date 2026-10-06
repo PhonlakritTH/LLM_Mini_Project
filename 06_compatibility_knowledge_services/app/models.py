@@ -6,6 +6,7 @@ class CompatibilityAssessment(BaseModel):
     score: float                       # model probability of compatibility
     uncertainty: float
     reason_codes: list[str]
+    evidence_sources: list[str] = []
     hard_override: bool                # a rule fired regardless of model score
     model_version: str
     feature_schema_version: str

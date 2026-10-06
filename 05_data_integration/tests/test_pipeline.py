@@ -67,3 +67,18 @@ def test_stale_price_flagged():
     req = IntegrationRequest(request_id="r6", records=[old])
     snap = snapshot(req, x_internal_token=settings.internal_token)
     assert any(f.flag == "stale" for f in snap.data_quality.flags) and not snap.data_quality.freshness_ok
+
+def test_unselected_candidate_price_records_are_not_added_to_build():
+    req = IntegrationRequest(request_id="r8", requested_parts=[
+        {"part_id": "Selected CPU", "category": "cpu", "knowledge_id": "cpu-1"},
+    ], records=[
+        rec(kind="price", part_id="Selected CPU", source="Google Shopping via SerpApi",
+            fields={"price": 7500, "low_price": 7000, "high_price": 8000}),
+        rec(kind="price", part_id="Alternative GPU", source="Google Shopping via SerpApi",
+            fields={"price": 12000, "low_price": 11000, "high_price": 13000}),
+    ])
+
+    snap = snapshot(req, x_internal_token=settings.internal_token)
+
+    assert [part.part_id for part in snap.parts] == ["Selected CPU"]
+    assert snap.parts[0].price_low == 7000 and snap.data_quality.coverage == 1.0

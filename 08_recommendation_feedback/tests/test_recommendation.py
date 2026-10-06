@@ -24,6 +24,13 @@ def test_degraded_services_surface_as_limitation():
     r = build(req(degraded_services=["price"]), x_internal_token=settings.internal_token)
     assert any("price" in l for l in r.limitations)
 
+def test_needs_review_action_formats_with_warning_prefix():
+    r = build(req(action_code="NEEDS_REVIEW", compatibility_status="warning",
+                  summary="Price range overlaps the budget."),
+              x_internal_token=settings.internal_token)
+    assert r.action_code == "NEEDS_REVIEW"
+    assert r.short_summary.startswith("!")
+
 def test_unknown_price_and_owned_part_are_preserved():
     r = build(req(parts=[{"type": "gpu", "name": "RTX 4060", "price": None, "price_low": None,
                          "price_high": None, "owned": False}]), x_internal_token=settings.internal_token)

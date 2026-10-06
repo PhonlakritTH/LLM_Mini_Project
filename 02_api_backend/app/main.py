@@ -1,15 +1,17 @@
 import time, uuid, logging
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote_plus
 from fastapi import FastAPI, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import httpx
 from jose import jwt, JWTError
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from .schemas import BuildRequest, BuildResponse
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(extra="ignore")
     jwt_secret: str = "dev-secret"
     jwt_issuer: str = "pc-spec-builder"
     jwt_audience: str = "web-app"
@@ -59,6 +61,13 @@ def rate_limit(request: Request, user: str = Depends(current_user)) -> str:
     q.append(now)
     return user
 
+def _store_search_links(part_name: str) -> list[dict[str, str]]:
+    query = quote_plus(part_name)
+    return [
+        {"store": "BaNANA", "url": f"https://www.bnn.in.th/th/p?q={query}"},
+        {"store": "Amazon.com", "url": f"https://www.amazon.com/s?k={query}"},
+    ]
+
 @app.post("/v1/auth/dev-token")  # DEV ONLY: replace with OAuth2/OIDC provider
 def dev_token():
     return {"access_token": make_token(f"guest-{uuid.uuid4().hex[:8]}"), "expires_in": 900}
@@ -96,8 +105,22 @@ async def _post_service(base_url: str, path: str, payload: dict) -> dict | None:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.post(f"{base_url}{path}", json=payload,
                                          headers={"X-Internal-Token": s.internal_token})
+        if path == "/v1/decision/evaluate" and response.is_error:
+            try:
+                detail = response.json().get("detail")
+            except ValueError:
+                detail = None
+            if not isinstance(detail, str):
+                detail = "The decision/LLM service returned an error. Check its container logs."
+            log.warning("decision_service_error status=%s detail=%s",
+                        response.status_code, detail)
+            raise ApiError(503, "LLM_PROVIDER_ERROR", detail)
         response.raise_for_status()
         return response.json()
+    except httpx.HTTPStatusError as error:
+        log.warning("downstream_http_error path=%s status=%s",
+                    path, error.response.status_code)
+        return None
     except (httpx.HTTPError, ValueError) as error:
         log.warning("downstream_unavailable path=%s error=%s", path, type(error).__name__)
         return None
@@ -120,15 +143,16 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
     requested_parts = [{
         "part_id": part["name"], "knowledge_id": part.get("part_id"),
         "category": part["type"], "socket": part.get("specs", {}).get("socket"),
-        "wattage_draw": part.get("wattage") or part.get("watts"),
+        "wattage_draw": part.get("wattage") or part.get("watts") or part.get("specs", {}).get("wattage"),
         "form_factor": part.get("specs", {}).get("form_factor"),
         "specs": part.get("specs", {}),
         "spec_source": part.get("spec_source"),
         "owned": part.get("owned", False),
     } for part in agent_parts]
+    existing_parts_dicts = [p.model_dump() for p in body.existing_parts]
     snapshot = await _post_service(s.data_integration_service_url, "/v1/integration/snapshot", {
         "request_id": body.request_id, "budget": body.budget, "use_case": body.use_case,
-        "existing_parts": body.existing_parts, "requested_parts": requested_parts,
+        "existing_parts": existing_parts_dicts, "requested_parts": requested_parts,
         "records": package.get("records", []),
     })
     if snapshot is None:
@@ -138,11 +162,15 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
     degraded = set(agent_result.get("degraded_services", []))
     if data_quality.get("coverage", 0) < 1:
         degraded.add("price")
-    if not data_quality.get("freshness_ok", False):
+    else:
+        degraded.discard("price")
+    if not data_quality.get("freshness_ok", True):
         degraded.add("stale_data")
+    else:
+        degraded.discard("stale_data")
 
     knowledge = await _post_service(s.knowledge_service_url, "/v1/knowledge/assess", {
-        "request_id": body.request_id, "snapshot": snapshot, "existing_parts": body.existing_parts,
+        "request_id": body.request_id, "snapshot": snapshot, "existing_parts": existing_parts_dicts,
         "constraints": package.get("request_summary", {}).get("constraints", {}),
         "question": body.question, "locale": body.locale, "budget": body.budget,
     })
@@ -164,7 +192,8 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
         "data_quality": data_quality, "degraded_services": sorted(degraded), "locale": body.locale,
     })
     if decision is None:
-        return _fallback_response(agent_result, body, "decision_engine")
+        raise ApiError(503, "DECISION_ENGINE_UNAVAILABLE",
+                       "The live decision/LLM service is unavailable; no generated explanation was returned.")
 
     decision_parts = [{
         "type": part.get("category", "part"), "name": part.get("part_id", "Unknown part"),
@@ -205,10 +234,15 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
     total = round(sum((part.get("price_low", part.get("price", 0)) +
                        part.get("price_high", part.get("price", 0))) / 2
                       for part in required_prices)) if all(part.get("price") is not None for part in required_prices) else None
+    
+    is_fully_compatible_and_in_budget = (action == "FINALIZE_BUILD" and status == "compatible")
+    final_status = "complete" if (is_fully_compatible_and_in_budget or not degraded and not decision.get("escalate")) else "degraded"
+
     return BuildResponse(
-        status="degraded" if degraded or decision.get("escalate") else "complete", questions=[],
+        status=final_status, questions=[],
         recommendation_code={"FINALIZE_BUILD": "finalize_build", "SWAP_COMPONENT": "swap_component",
                              "RECONFIGURE_BUILD": "reconfigure_build", "NEEDS_PRICE_DATA": "needs_price_data",
+                             "NEEDS_REVIEW": "needs_review",
                              "AVOID_COMBINATION": "avoid_combination"}[action],
         compatibility_status=status, confidence=decision.get("confidence"),
         summary=(formatted or {}).get("short_summary", decision["summary"]),
@@ -216,12 +250,18 @@ async def _orchestrate(agent_result: dict, body: BuildRequest) -> dict:
         limitations=(formatted or {}).get("limitations", []),
         conflicts=(knowledge.get("compatibility", {}).get("reason_codes", [])
                    if status == "incompatible" else []), suggested_fix=None,
-        parts_list=output_parts,
+        parts_list=[{
+            **part,
+            "store_search_links": [] if part.get("owned") else _store_search_links(part["name"]),
+        } for part in output_parts],
         price_breakdown={part["type"]: part.get("price") for part in output_parts},
         data_quality={**data_quality, "total_price": total, "total_price_range": total_range,
                       "budget_is_estimate": True},
-        sources=package.get("sources", []) + [f"{item['document_id']}:{item['section']}"
-            for item in (formatted or {}).get("sources", [])],
+        sources=list(dict.fromkeys(
+            package.get("sources", [])
+            + [f"{item['document_id']}:{item['section']}" for item in (formatted or {}).get("sources", [])]
+            + knowledge.get("compatibility", {}).get("evidence_sources", [])
+        )),
         partial_result=bool(degraded) or bool(decision.get("escalate")),
         degraded_services=sorted(degraded),
         updated_at=(formatted or {}).get("fetched_at", package.get("updated_at", datetime.now(timezone.utc).isoformat())),
@@ -246,10 +286,17 @@ def _build_response(agent_result: dict, body: BuildRequest) -> dict:
     parts = package.get("parts", [])
     total = quality.get("total_price")
     degraded = sorted(set(agent_result.get("degraded_services", [])))
+    price_range = quality.get("total_price_range") or {}
+    price_range_overlaps_budget = (
+        price_range.get("low") is not None and price_range.get("high") is not None
+        and price_range["low"] <= body.budget < price_range["high"]
+    )
     if status == "incompatible":
         action = "avoid_combination"
     elif total is None or any(name in degraded for name in ("price",)):
         action = "needs_price_data"
+    elif status == "warning" or price_range_overlaps_budget:
+        action = "needs_review"
     elif total > body.budget:
         action = "swap_component" if package.get("alternatives") else "reconfigure_build"
     else:
@@ -273,15 +320,20 @@ def _build_response(agent_result: dict, body: BuildRequest) -> dict:
         summary=("ตรวจพบชิ้นส่วนที่ไม่เข้ากัน" if status == "incompatible" else
              "ราคารวมอ้างอิงเกินงบที่กำหนด" if total is not None and total > body.budget and action == "reconfigure_build" else
              "ข้อมูลราคาอ้างอิงยังไม่ครบ จึงยังประเมินงบรวมไม่ได้" if action == "needs_price_data" else
+             "มีช่วงราคาอ้างอิงแล้ว แต่ต้องตรวจสอบความเข้ากันได้หรือช่วงงบก่อนยืนยัน" if action == "needs_review" else
                  "สเปกผ่านการตรวจสอบตามข้อมูลที่มี"),
         reasons=reasons, limitations=limitations, conflicts=compat.get("conflicts", []), suggested_fix=None,
         parts_list=[{"type": p["type"], "name": p["name"], "price": p.get("price"),
                      "price_low": p.get("price_low"), "price_high": p.get("price_high"),
                      "price_source": p.get("price_source"),
                      "spec_source": p.get("spec_source"),
-                     "owned": p.get("owned", False)} for p in parts],
+                     "owned": p.get("owned", False),
+                     "store_search_links": [] if p.get("owned") else _store_search_links(p["name"])}
+                    for p in parts],
         price_breakdown={p["type"]: p.get("price") for p in parts},
-        sources=package.get("sources", []),
+        sources=list(dict.fromkeys(
+            package.get("sources", []) + compat.get("evidence_sources", [])
+        )),
         partial_result=agent_result.get("status") != "complete" or bool(degraded),
         degraded_services=degraded,         data_quality={**quality, "budget_is_estimate": True}, updated_at=package.get("updated_at", datetime.now(timezone.utc).isoformat()),
         request_id=body.request_id, correlation_id="", conversation_id=agent_result.get("conversation_id", "")).model_dump()

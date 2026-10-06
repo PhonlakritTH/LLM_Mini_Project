@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     google_country: str = "th"
     google_language: str = "th"
     google_location: str = "Bangkok, Thailand"
-    provider_timeout: float = 5
+    provider_timeout: float = 15
     cache_ttl_price: int = 120        # prices change fast
     rate_limit: int = 60
     user_agent: str = "pc-spec-builder/1.0"

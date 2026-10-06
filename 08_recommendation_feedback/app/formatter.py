@@ -4,12 +4,19 @@ from .config import settings
 from .models import FormatRequest, RecommendationResponse, now_iso
 from .warranty import contacts_for
 
-SUMMARY_PREFIX = {"FINALIZE_BUILD": "", "SWAP_COMPONENT": "", "RECONFIGURE_BUILD": "", "NEEDS_PRICE_DATA": "", "AVOID_COMBINATION": "⚠ "}
+SUMMARY_PREFIX = {
+    "FINALIZE_BUILD": "", "SWAP_COMPONENT": "", "RECONFIGURE_BUILD": "",
+    "NEEDS_PRICE_DATA": "", "NEEDS_REVIEW": "!", "AVOID_COMBINATION": "⚠ ",
+}
+DEGRADED_LABELS = {
+    "compatibility_evidence_unverified": "หลักฐานความเข้ากันได้จากผู้ผลิตยังยืนยันไม่ครบ",
+}
 
 def build_response(req: FormatRequest) -> RecommendationResponse:
     limitations = []
     if req.degraded_services:
-        limitations.append(f"Some data could not be verified: {', '.join(req.degraded_services)}.")
+        labels = [DEGRADED_LABELS.get(name, name) for name in req.degraded_services]
+        limitations.append(f"ข้อมูลบางส่วนยังตรวจสอบไม่ได้: {', '.join(labels)}.")
     if req.escalate:
         limitations.append("This build was flagged for extra review; treat the result as lower-confidence.")
     immediate = list(req.immediate_actions)

@@ -4,7 +4,7 @@ let token: string | null = null;
 export type BuildResponse = {
   status: "complete" | "needs_info" | "degraded" | "budget_exhausted";
   questions: string[];
-  recommendation_code: string;
+  recommendation_code: "finalize_build" | "swap_component" | "reconfigure_build" | "needs_price_data" | "needs_review" | "avoid_combination";
   compatibility_status: "compatible" | "warning" | "incompatible";
   confidence: number | null;
   summary: string;
@@ -12,12 +12,12 @@ export type BuildResponse = {
   limitations: string[];
   conflicts: string[];
   suggested_fix: string | null;
-  parts_list: { type: string; name: string; price: number | null; price_low: number | null; price_high: number | null; price_source: string | null; spec_source: string | null; owned: boolean }[];
+  parts_list: { type: string; name: string; price: number | null; price_low: number | null; price_high: number | null; price_source: string | null; spec_source: string | null; owned: boolean; store_search_links: { store: string; url: string }[] }[];
   price_breakdown: Record<string, number | null>;
   sources: string[];
   partial_result: boolean;
   degraded_services: string[];
-  data_quality: { total_price?: number | null; total_price_range?: { low: number; high: number; currency: string } | null; budget_is_estimate?: boolean; budget_fit?: string; price_reference_source?: string; price_reference_note?: string; price_reference_observed_at?: string | null };
+  data_quality: { total_price?: number | null; total_price_range?: { low: number; high: number; currency: string } | null; budget_is_estimate?: boolean; budget_fit?: string; price_reference_source?: string; price_reference_note?: string; price_reference_observed_at?: string | null; manufacturer_spec_sources?: { live_pages: number; requested_pages: number; structured_spec_pages: number; all_live: boolean; records: { part_id: string; status: string; source: string | null; fetched_at: string | null; facts: Record<string, string> }[] } };
   updated_at: string;
   conversation_id: string;
 };

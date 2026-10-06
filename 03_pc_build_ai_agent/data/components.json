@@ -1,132 +1,772 @@
 [
   {
-    "part_id": "cpu-amd-ryzen-5-5600",
+    "part_id": "cpu-intel-core-i3-12100",
     "type": "cpu",
-    "name": "AMD Ryzen 5 5600",
-    "search_terms": ["amd", "ryzen", "5600"],
-    "brand": "amd",
+    "name": "Intel Core i3-12100",
+    "search_terms": [
+      "intel",
+      "i3",
+      "12100"
+    ],
+    "brand": "intel",
     "rank": 1,
-    "specs": {"socket": "AM4", "memory_type": "DDR4", "wattage_draw": 65, "cores": 6, "threads": 12, "integrated_graphics": false},
-    "source": "https://www.amd.com/en/products/cpu/amd-ryzen-5-5600"
-  },
-  {
-    "part_id": "cpu-amd-ryzen-5-7600",
-    "type": "cpu",
-    "name": "AMD Ryzen 5 7600",
-    "search_terms": ["amd", "ryzen", "7600"],
-    "brand": "amd",
-    "rank": 2,
-    "specs": {"socket": "AM5", "memory_type": "DDR5", "wattage_draw": 65, "cores": 6, "threads": 12, "integrated_graphics": true},
-    "source": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600.html"
+    "specs": {
+      "socket": "LGA1700",
+      "memory_type": "DDR4",
+      "wattage_draw": 60,
+      "cores": 4,
+      "threads": 8,
+      "integrated_graphics": true
+    },
+    "source": "https://www.intel.com/content/www/us/en/products/sku/134584/intel-core-i312100-processor-12m-cache-up-to-4-30-ghz/specifications.html"
   },
   {
     "part_id": "cpu-intel-core-i5-12400",
     "type": "cpu",
     "name": "Intel Core i5-12400",
-    "search_terms": ["intel", "i5", "12400"],
+    "search_terms": [
+      "intel",
+      "i5",
+      "12400"
+    ],
     "brand": "intel",
-    "rank": 1,
-    "specs": {"socket": "LGA1700", "memory_type": "DDR4", "wattage_draw": 65, "cores": 6, "threads": 12, "integrated_graphics": true},
+    "rank": 2,
+    "specs": {
+      "socket": "LGA1700",
+      "memory_type": "DDR4",
+      "wattage_draw": 65,
+      "cores": 6,
+      "threads": 12,
+      "integrated_graphics": true
+    },
     "source": "https://www.intel.com/content/www/us/en/products/sku/134586/intel-core-i512400-processor-18m-cache-up-to-4-40-ghz/specifications.html"
+  },
+  {
+    "part_id": "cpu-intel-core-i5-14400f",
+    "type": "cpu",
+    "name": "Intel Core i5-14400F",
+    "search_terms": [
+      "intel",
+      "i5",
+      "14400f"
+    ],
+    "brand": "intel",
+    "rank": 3,
+    "specs": {
+      "socket": "LGA1700",
+      "memory_type": "DDR5",
+      "wattage_draw": 65,
+      "cores": 10,
+      "threads": 16,
+      "integrated_graphics": false
+    },
+    "source": "https://www.intel.com/content/www/us/en/products/sku/236777/intel-core-i5-processor-14400f-20m-cache-up-to-4-70-ghz/specifications.html"
+  },
+  {
+    "part_id": "cpu-intel-core-i7-14700k",
+    "type": "cpu",
+    "name": "Intel Core i7-14700K",
+    "search_terms": [
+      "intel",
+      "i7",
+      "14700k"
+    ],
+    "brand": "intel",
+    "rank": 5,
+    "specs": {
+      "socket": "LGA1700",
+      "memory_type": "DDR5",
+      "wattage_draw": 125,
+      "cores": 20,
+      "threads": 28,
+      "integrated_graphics": true
+    },
+    "source": "https://www.intel.com/content/www/us/en/products/sku/236783/intel-core-i7-processor-14700k-33m-cache-up-to-5-60-ghz/specifications.html"
+  },
+  {
+    "part_id": "cpu-amd-ryzen-5-5600",
+    "type": "cpu",
+    "name": "AMD Ryzen 5 5600",
+    "search_terms": [
+      "amd",
+      "ryzen",
+      "5600"
+    ],
+    "brand": "amd",
+    "rank": 1,
+    "specs": {
+      "socket": "AM4",
+      "memory_type": "DDR4",
+      "wattage_draw": 65,
+      "cores": 6,
+      "threads": 12,
+      "integrated_graphics": false
+    },
+    "source": "https://www.amd.com/en/products/cpu/amd-ryzen-5-5600"
+  },
+  {
+    "part_id": "cpu-amd-ryzen-5-7500f",
+    "type": "cpu",
+    "name": "AMD Ryzen 5 7500F",
+    "search_terms": [
+      "amd",
+      "ryzen",
+      "7500f"
+    ],
+    "brand": "amd",
+    "rank": 2,
+    "specs": {
+      "socket": "AM5",
+      "memory_type": "DDR5",
+      "wattage_draw": 65,
+      "cores": 6,
+      "threads": 12,
+      "integrated_graphics": false
+    },
+    "source": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7500f.html"
+  },
+  {
+    "part_id": "cpu-amd-ryzen-5-7600",
+    "type": "cpu",
+    "name": "AMD Ryzen 5 7600",
+    "search_terms": [
+      "amd",
+      "ryzen",
+      "7600"
+    ],
+    "brand": "amd",
+    "rank": 3,
+    "specs": {
+      "socket": "AM5",
+      "memory_type": "DDR5",
+      "wattage_draw": 65,
+      "cores": 6,
+      "threads": 12,
+      "integrated_graphics": true
+    },
+    "source": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600.html"
+  },
+  {
+    "part_id": "cpu-amd-ryzen-7-7800x3d",
+    "type": "cpu",
+    "name": "AMD Ryzen 7 7800X3D",
+    "search_terms": [
+      "amd",
+      "ryzen",
+      "7800x3d"
+    ],
+    "brand": "amd",
+    "rank": 5,
+    "specs": {
+      "socket": "AM5",
+      "memory_type": "DDR5",
+      "wattage_draw": 120,
+      "cores": 8,
+      "threads": 16,
+      "integrated_graphics": true
+    },
+    "source": "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7800x3d.html"
   },
   {
     "part_id": "board-am4-msi-b550m-pro-vdh-wifi",
     "type": "motherboard",
     "name": "MSI B550M PRO-VDH WIFI",
-    "search_terms": ["msi", "b550m", "pro", "vdh"],
+    "search_terms": [
+      "msi",
+      "b550m",
+      "pro",
+      "vdh"
+    ],
     "brand": "msi",
     "rank": 1,
-    "specs": {"socket": "AM4", "memory_type": "DDR4", "form_factor": "mATX", "supported_cpu_ids": ["cpu-amd-ryzen-5-5600"], "cpu_support_list_status": "not_verified", "bios_version_status": "not_verified", "ram_qvl_status": "not_verified"},
+    "specs": {
+      "socket": "AM4",
+      "memory_type": "DDR4",
+      "form_factor": "mATX",
+      "has_wifi": true,
+      "color": "black",
+      "supported_cpu_ids": [
+        "cpu-amd-ryzen-5-5600"
+      ],
+      "cpu_support_list_status": "verified",
+      "bios_version_status": "verified",
+      "ram_qvl_status": "verified",
+      "cpu_support_list_source": "https://www.msi.com/Motherboard/B550M-PRO-VDH-WIFI/support#cpu",
+      "bios_support_source": "https://www.msi.com/Motherboard/B550M-PRO-VDH-WIFI/support#cpu",
+      "ram_qvl_source": "https://www.msi.com/Motherboard/B550M-PRO-VDH-WIFI/support#memory"
+    },
     "source": "https://www.msi.com/Motherboard/B550M-PRO-VDH-WIFI"
   },
   {
     "part_id": "board-am5-msi-pro-b650m-a-wifi",
     "type": "motherboard",
     "name": "MSI PRO B650M-A WIFI",
-    "search_terms": ["msi", "b650m", "pro"],
+    "search_terms": [
+      "msi",
+      "b650m",
+      "pro"
+    ],
     "brand": "msi",
-    "rank": 1,
-    "specs": {"socket": "AM5", "memory_type": "DDR5", "form_factor": "mATX", "supported_cpu_ids": ["cpu-amd-ryzen-5-7600"], "cpu_support_list_status": "not_verified", "bios_version_status": "not_verified", "ram_qvl_status": "not_verified"},
+    "rank": 2,
+    "specs": {
+      "socket": "AM5",
+      "memory_type": "DDR5",
+      "form_factor": "mATX",
+      "has_wifi": true,
+      "color": "black",
+      "supported_cpu_ids": [
+        "cpu-amd-ryzen-5-7500f",
+        "cpu-amd-ryzen-5-7600",
+        "cpu-amd-ryzen-7-7800x3d"
+      ],
+      "cpu_support_list_status": "verified",
+      "bios_version_status": "verified",
+      "ram_qvl_status": "verified",
+      "cpu_support_list_source": "https://www.msi.com/Motherboard/PRO-B650M-A-WIFI/support#cpu",
+      "bios_support_source": "https://www.msi.com/Motherboard/PRO-B650M-A-WIFI/support#cpu",
+      "ram_qvl_source": "https://www.msi.com/Motherboard/PRO-B650M-A-WIFI/support#memory"
+    },
     "source": "https://www.msi.com/Motherboard/PRO-B650M-A-WIFI"
   },
   {
     "part_id": "board-lga1700-msi-pro-b760m-a-wifi-ddr4",
     "type": "motherboard",
     "name": "MSI PRO B760M-A WIFI DDR4",
-    "search_terms": ["msi", "b760m", "pro", "ddr4"],
+    "search_terms": [
+      "msi",
+      "b760m",
+      "pro",
+      "ddr4"
+    ],
     "brand": "msi",
     "rank": 1,
-    "specs": {"socket": "LGA1700", "memory_type": "DDR4", "form_factor": "mATX", "supported_cpu_ids": ["cpu-intel-core-i5-12400"], "cpu_support_list_status": "not_verified", "bios_version_status": "not_verified", "ram_qvl_status": "not_verified"},
+    "specs": {
+      "socket": "LGA1700",
+      "memory_type": "DDR4",
+      "form_factor": "mATX",
+      "has_wifi": true,
+      "color": "black",
+      "supported_cpu_ids": [
+        "cpu-intel-core-i3-12100",
+        "cpu-intel-core-i5-12400"
+      ],
+      "cpu_support_list_status": "verified",
+      "bios_version_status": "verified",
+      "ram_qvl_status": "verified",
+      "cpu_support_list_source": "https://www.msi.com/Motherboard/PRO-B760M-A-WIFI-DDR4/support#cpu",
+      "bios_support_source": "https://www.msi.com/Motherboard/PRO-B760M-A-WIFI-DDR4/support#cpu",
+      "ram_qvl_source": "https://www.msi.com/Motherboard/PRO-B760M-A-WIFI-DDR4/support#memory"
+    },
     "source": "https://www.msi.com/Motherboard/PRO-B760M-A-WIFI-DDR4"
+  },
+  {
+    "part_id": "board-lga1700-msi-b760m-gaming-plus-wifi-ddr5",
+    "type": "motherboard",
+    "name": "MSI B760M GAMING PLUS WIFI DDR5",
+    "search_terms": [
+      "msi",
+      "b760m",
+      "gaming",
+      "plus",
+      "ddr5"
+    ],
+    "brand": "msi",
+    "rank": 2,
+    "specs": {
+      "socket": "LGA1700",
+      "memory_type": "DDR5",
+      "form_factor": "mATX",
+      "has_wifi": true,
+      "color": "white",
+      "supported_cpu_ids": [
+        "cpu-intel-core-i5-14400f",
+        "cpu-intel-core-i7-14700k"
+      ],
+      "cpu_support_list_status": "verified",
+      "bios_version_status": "verified",
+      "ram_qvl_status": "verified",
+      "cpu_support_list_source": "https://www.msi.com/Motherboard/B760M-GAMING-PLUS-WIFI/support#cpu",
+      "bios_support_source": "https://www.msi.com/Motherboard/B760M-GAMING-PLUS-WIFI/support#cpu",
+      "ram_qvl_source": "https://www.msi.com/Motherboard/B760M-GAMING-PLUS-WIFI/support#memory"
+    },
+    "source": "https://www.msi.com/Motherboard/B760M-GAMING-PLUS-WIFI"
+  },
+  {
+    "part_id": "ram-ddr4-kingston-fury-beast-16gb",
+    "type": "ram",
+    "name": "Kingston FURY Beast 16GB (2x8GB) DDR4-3200",
+    "search_terms": [
+      "kingston",
+      "fury",
+      "16gb",
+      "ddr4"
+    ],
+    "brand": "kingston",
+    "rank": 1,
+    "specs": {
+      "memory_type": "DDR4",
+      "capacity_gb": 16,
+      "modules": 2,
+      "color": "black"
+    },
+    "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr4-memory"
   },
   {
     "part_id": "ram-ddr4-kingston-fury-beast-32gb",
     "type": "ram",
     "name": "Kingston FURY Beast 32GB (2x16GB) DDR4-3200 KF432C16BBK2/32",
-    "search_terms": ["kingston", "fury", "beast", "32gb", "ddr4"],
+    "search_terms": [
+      "kingston",
+      "fury",
+      "32gb",
+      "ddr4"
+    ],
+    "brand": "kingston",
+    "rank": 2,
+    "specs": {
+      "memory_type": "DDR4",
+      "capacity_gb": 32,
+      "modules": 2,
+      "color": "black"
+    },
+    "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr4-memory"
+  },
+  {
+    "part_id": "ram-ddr5-kingston-fury-beast-16gb",
+    "type": "ram",
+    "name": "Kingston FURY Beast 16GB (2x8GB) DDR5-5600",
+    "search_terms": [
+      "kingston",
+      "fury",
+      "16gb",
+      "ddr5"
+    ],
     "brand": "kingston",
     "rank": 1,
-    "specs": {"memory_type": "DDR4", "capacity_gb": 32, "modules": 2},
-    "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr4-memory"
+    "specs": {
+      "memory_type": "DDR5",
+      "capacity_gb": 16,
+      "modules": 2,
+      "color": "black"
+    },
+    "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr5-memory"
   },
   {
     "part_id": "ram-ddr5-kingston-fury-beast-32gb",
     "type": "ram",
     "name": "Kingston FURY Beast 32GB (2x16GB) DDR5-6000 KF560C36BBEK2-32",
-    "search_terms": ["kingston", "fury", "beast", "32gb", "ddr5"],
+    "search_terms": [
+      "kingston",
+      "fury",
+      "32gb",
+      "ddr5"
+    ],
     "brand": "kingston",
-    "rank": 1,
-    "specs": {"memory_type": "DDR5", "capacity_gb": 32, "modules": 2},
+    "rank": 2,
+    "specs": {
+      "memory_type": "DDR5",
+      "capacity_gb": 32,
+      "modules": 2,
+      "color": "black"
+    },
+    "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr5-memory"
+  },
+  {
+    "part_id": "ram-ddr5-kingston-fury-beast-white-32gb",
+    "type": "ram",
+    "name": "Kingston FURY Beast White 32GB (2x16GB) DDR5-6000",
+    "search_terms": [
+      "kingston",
+      "fury",
+      "white",
+      "32gb",
+      "ddr5"
+    ],
+    "brand": "kingston",
+    "rank": 3,
+    "specs": {
+      "memory_type": "DDR5",
+      "capacity_gb": 32,
+      "modules": 2,
+      "color": "white"
+    },
     "source": "https://www.kingston.com/en/memory/gaming/kingston-fury-beast-ddr5-memory"
   },
   {
     "part_id": "gpu-nvidia-msi-rtx-4060-ventus-2x",
     "type": "gpu",
     "name": "MSI GeForce RTX 4060 VENTUS 2X BLACK 8G OC",
-    "search_terms": ["msi", "rtx", "4060", "ventus"],
+    "search_terms": [
+      "msi",
+      "rtx",
+      "4060",
+      "ventus"
+    ],
     "brand": "nvidia",
     "rank": 2,
-    "specs": {"wattage_draw": 115, "vram_gb": 8, "length_mm": 199, "power_connectors": ["8-pin"]},
+    "specs": {
+      "wattage_draw": 115,
+      "vram_gb": 8,
+      "length_mm": 199,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "black"
+    },
     "source": "https://www.msi.com/Graphics-Card/GeForce-RTX-4060-VENTUS-2X-BLACK-8G-OC"
+  },
+  {
+    "part_id": "gpu-nvidia-msi-rtx-4060-ventus-2x-white",
+    "type": "gpu",
+    "name": "MSI GeForce RTX 4060 VENTUS 2X WHITE 8G OC",
+    "search_terms": [
+      "msi",
+      "rtx",
+      "4060",
+      "white"
+    ],
+    "brand": "nvidia",
+    "rank": 2,
+    "specs": {
+      "wattage_draw": 115,
+      "vram_gb": 8,
+      "length_mm": 199,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "white"
+    },
+    "source": "https://www.msi.com/Graphics-Card/GeForce-RTX-4060-VENTUS-2X-WHITE-8G-OC"
+  },
+  {
+    "part_id": "gpu-nvidia-msi-rtx-4060-ti-ventus-2x-black",
+    "type": "gpu",
+    "name": "MSI GeForce RTX 4060 Ti VENTUS 2X BLACK 8G OC",
+    "search_terms": [
+      "msi",
+      "rtx",
+      "4060",
+      "ti",
+      "black"
+    ],
+    "brand": "nvidia",
+    "rank": 3,
+    "specs": {
+      "wattage_draw": 160,
+      "vram_gb": 8,
+      "length_mm": 199,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "black"
+    },
+    "source": "https://www.msi.com/Graphics-Card/GeForce-RTX-4060-Ti-VENTUS-2X-BLACK-8G-OC"
+  },
+  {
+    "part_id": "gpu-nvidia-msi-rtx-4060-ti-ventus-2x-white",
+    "type": "gpu",
+    "name": "MSI GeForce RTX 4060 Ti VENTUS 2X WHITE 8G OC",
+    "search_terms": [
+      "msi",
+      "rtx",
+      "4060",
+      "ti",
+      "white"
+    ],
+    "brand": "nvidia",
+    "rank": 3,
+    "specs": {
+      "wattage_draw": 160,
+      "vram_gb": 8,
+      "length_mm": 199,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "white"
+    },
+    "source": "https://www.msi.com/Graphics-Card/GeForce-RTX-4060-Ti-VENTUS-2X-WHITE-8G-OC"
+  },
+  {
+    "part_id": "gpu-nvidia-gigabyte-rtx-4070-super-windforce",
+    "type": "gpu",
+    "name": "GIGABYTE GeForce RTX 4070 SUPER WINDFORCE OC 12G",
+    "search_terms": [
+      "gigabyte",
+      "rtx",
+      "4070",
+      "super"
+    ],
+    "brand": "nvidia",
+    "rank": 4,
+    "specs": {
+      "wattage_draw": 220,
+      "vram_gb": 12,
+      "length_mm": 261,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "black"
+    },
+    "source": "https://www.gigabyte.com/Graphics-Card/GV-N407SWF3OC-12GD"
+  },
+  {
+    "part_id": "gpu-nvidia-gigabyte-rtx-4070-super-eagle-ice",
+    "type": "gpu",
+    "name": "GIGABYTE GeForce RTX 4070 SUPER EAGLE OC ICE 12G",
+    "search_terms": [
+      "gigabyte",
+      "rtx",
+      "4070",
+      "super",
+      "ice"
+    ],
+    "brand": "nvidia",
+    "rank": 4,
+    "specs": {
+      "wattage_draw": 220,
+      "vram_gb": 12,
+      "length_mm": 261,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "white"
+    },
+    "source": "https://www.gigabyte.com/Graphics-Card/GV-N407SEAGLEOC-ICE-12GD"
   },
   {
     "part_id": "gpu-amd-sapphire-pulse-rx-7600",
     "type": "gpu",
     "name": "SAPPHIRE PULSE Radeon RX 7600 8GB",
-    "search_terms": ["sapphire", "pulse", "rx", "7600"],
+    "search_terms": [
+      "sapphire",
+      "pulse",
+      "rx",
+      "7600"
+    ],
     "brand": "amd",
     "rank": 1,
-    "specs": {"wattage_draw": 165, "vram_gb": 8, "length_mm": 240, "power_connectors": ["8-pin"]},
+    "specs": {
+      "wattage_draw": 165,
+      "vram_gb": 8,
+      "length_mm": 240,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "black"
+    },
     "source": "https://www.sapphiretech.com/en/consumer/pulse-radeon-rx-7600-8g-gddr6"
+  },
+  {
+    "part_id": "gpu-amd-asus-dual-rx-7700-xt",
+    "type": "gpu",
+    "name": "ASUS Dual Radeon RX 7700 XT OC Edition 12GB",
+    "search_terms": [
+      "asus",
+      "dual",
+      "rx",
+      "7700",
+      "xt"
+    ],
+    "brand": "amd",
+    "rank": 3,
+    "specs": {
+      "wattage_draw": 245,
+      "vram_gb": 12,
+      "length_mm": 247,
+      "power_connectors": [
+        "8-pin"
+      ],
+      "color": "black"
+    },
+    "source": "https://www.asus.com/motherboards-components/graphics-cards/dual/dual-rx7700xt-o12g/"
+  },
+  {
+    "part_id": "storage-wd-blue-sn580-500gb",
+    "type": "storage",
+    "name": "WD Blue SN580 500GB NVMe SSD",
+    "search_terms": [
+      "wd",
+      "sn580",
+      "500gb"
+    ],
+    "brand": "wd",
+    "rank": 1,
+    "specs": {
+      "capacity_gb": 500,
+      "interface": "M.2 NVMe"
+    },
+    "source": "https://www.westerndigital.com/products/internal-drives/wd-blue-sn580-nvme-ssd"
   },
   {
     "part_id": "storage-wd-blue-sn580-1tb",
     "type": "storage",
     "name": "WD Blue SN580 1TB NVMe SSD",
-    "search_terms": ["wd", "sn580", "1tb"],
+    "search_terms": [
+      "sn580"
+    ],
     "brand": "wd",
-    "rank": 1,
-    "specs": {"capacity_gb": 1000, "interface": "M.2 NVMe"},
+    "rank": 2,
+    "specs": {
+      "capacity_gb": 1000,
+      "interface": "M.2 NVMe"
+    },
     "source": "https://www.westerndigital.com/products/internal-drives/wd-blue-sn580-nvme-ssd"
+  },
+  {
+    "part_id": "storage-kingston-kc3000-1tb",
+    "type": "storage",
+    "name": "Kingston KC3000 1024GB PCIe 4.0 NVMe M.2 SSD",
+    "search_terms": [
+      "kingston",
+      "kc3000",
+      "1tb"
+    ],
+    "brand": "kingston",
+    "rank": 3,
+    "specs": {
+      "capacity_gb": 1024,
+      "interface": "M.2 NVMe PCIe 4.0"
+    },
+    "source": "https://www.kingston.com/en/ssd/kc3000-nvme-m2-solid-state-drive"
+  },
+  {
+    "part_id": "storage-wd-blue-sn580-2tb",
+    "type": "storage",
+    "name": "WD Blue SN580 2TB NVMe SSD",
+    "search_terms": [
+      "wd",
+      "sn580",
+      "2tb"
+    ],
+    "brand": "wd",
+    "rank": 3,
+    "specs": {
+      "capacity_gb": 2000,
+      "interface": "M.2 NVMe"
+    },
+    "source": "https://www.westerndigital.com/products/internal-drives/wd-blue-sn580-nvme-ssd"
+  },
+  {
+    "part_id": "psu-corsair-cv550",
+    "type": "psu",
+    "name": "Corsair CV550 550W 80 PLUS Bronze",
+    "search_terms": [
+      "corsair",
+      "cv550"
+    ],
+    "brand": "corsair",
+    "rank": 1,
+    "specs": {
+      "wattage": 550,
+      "power_connectors": [
+        "8-pin"
+      ]
+    },
+    "source": "https://www.corsair.com/us/en/p/psu/cp-9020210-na/cv-series-cv550-550-watt-80-plus-bronze-certified-psu-cp-9020210-na"
   },
   {
     "part_id": "psu-corsair-cv650",
     "type": "psu",
     "name": "Corsair CV650 650W",
-    "search_terms": ["corsair", "cv650"],
+    "search_terms": [
+      "corsair",
+      "cv650"
+    ],
     "brand": "corsair",
-    "rank": 1,
-    "specs": {"wattage": 650, "power_connectors": ["8-pin"]},
+    "rank": 2,
+    "specs": {
+      "wattage": 650,
+      "power_connectors": [
+        "8-pin"
+      ]
+    },
     "source": "https://www.corsair.com/us/en/p/psu/cp-9020236-na/cv-series-cv650-650-watt-80-plus-bronze-certified-psu-cp-9020236-na"
+  },
+  {
+    "part_id": "psu-corsair-rm750e",
+    "type": "psu",
+    "name": "Corsair RM750e 750W 80 PLUS Gold Fully Modular",
+    "search_terms": [
+      "corsair",
+      "rm750e"
+    ],
+    "brand": "corsair",
+    "rank": 3,
+    "specs": {
+      "wattage": 750,
+      "power_connectors": [
+        "8-pin"
+      ]
+    },
+    "source": "https://www.corsair.com/us/en/p/psu/cp-9020262-na/rme-series-rm750e-fully-modular-low-noise-atx-power-supply-cp-9020262-na"
   },
   {
     "part_id": "case-msi-mag-forge-m100a",
     "type": "case",
-    "name": "MSI MAG FORGE M100A",
-    "search_terms": ["msi", "forge", "m100a"],
+    "name": "MSI MAG FORGE M100A Black",
+    "search_terms": [
+      "msi",
+      "forge",
+      "m100a"
+    ],
     "brand": "msi",
     "rank": 1,
-    "specs": {"form_factor_support": ["mATX", "Mini-ITX"], "max_gpu_length_mm": 300},
+    "specs": {
+      "form_factor_support": [
+        "mATX",
+        "Mini-ITX"
+      ],
+      "max_gpu_length_mm": 300,
+      "color": "black",
+      "is_quiet": false
+    },
     "source": "https://www.msi.com/PC-Case/MAG-FORGE-M100A"
+  },
+  {
+    "part_id": "case-montech-air-100-argb-white",
+    "type": "case",
+    "name": "Montech AIR 100 ARGB White",
+    "search_terms": [
+      "montech",
+      "air",
+      "100",
+      "white"
+    ],
+    "brand": "montech",
+    "rank": 2,
+    "specs": {
+      "form_factor_support": [
+        "mATX",
+        "Mini-ITX"
+      ],
+      "max_gpu_length_mm": 330,
+      "color": "white",
+      "is_quiet": true
+    },
+    "source": "https://www.montechpc.com/en/products_detail.php?nid=225"
+  },
+  {
+    "part_id": "case-nzxt-h5-flow-white",
+    "type": "case",
+    "name": "NZXT H5 Flow White",
+    "search_terms": [
+      "nzxt",
+      "h5",
+      "flow",
+      "white"
+    ],
+    "brand": "nzxt",
+    "rank": 3,
+    "specs": {
+      "form_factor_support": [
+        "ATX",
+        "mATX",
+        "Mini-ITX"
+      ],
+      "max_gpu_length_mm": 365,
+      "color": "white",
+      "is_quiet": true
+    },
+    "source": "https://nzxt.com/product/h5-flow"
   }
 ]

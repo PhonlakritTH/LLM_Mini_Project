@@ -23,11 +23,14 @@ def _tier(perf: float | None) -> str | None:
 
 def build_snapshot(req) -> PartCatalogSnapshot:
     now = datetime.now(timezone.utc)
+    requested_ids = {part["part_id"] for part in req.requested_parts}
     valid, quarantine, seen_hashes = [], [], set()
     for rec in req.records:
         # 1. schema check -> quarantine invalid
         if not rec.part_id or rec.kind not in ("price", "spec"):
             quarantine.append({"record": rec.model_dump(), "reason": "invalid_schema"}); continue
+        if requested_ids and rec.part_id not in requested_ids:
+            continue
         h = _content_hash(rec)
         if h in seen_hashes:  # idempotent upsert: drop exact duplicates
             continue
@@ -72,7 +75,8 @@ def build_snapshot(req) -> PartCatalogSnapshot:
         p["category"] = p.get("category") or CATEGORY.get(rec.part_id.split()[0].lower(), "part")
 
     parts: list[PartRecord] = []
-    requested_ids = set(by_part) | {r.part_id for r in valid}
+    if not requested_ids:
+        requested_ids = set(by_part) | {r.part_id for r in valid}
     for pid in requested_ids:
         d = by_part.get(pid, {})
         owned = d.get("owned", False)

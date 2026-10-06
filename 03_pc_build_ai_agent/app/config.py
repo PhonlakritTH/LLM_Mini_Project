@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     max_agent_steps: int = 20
     max_tool_calls: int = 12
     agent_total_timeout: float = 25
-    tool_timeout: float = 5
+    tool_timeout: float = 25
+    manufacturer_timeout: float = 8
     retry_base_delay: float = 0.2
     price_service_url: str = ""
     knowledge_database_path: str = "data/components.sqlite3"

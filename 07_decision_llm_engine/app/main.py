@@ -1,9 +1,10 @@
 import uuid
 from fastapi import FastAPI, Header, HTTPException
+from jsonschema import ValidationError
 from .config import settings
 from .models import DecisionRequest, DecisionResult, Citation
 from .rules import decide, confidence_and_escalation
-from .explainer import build_prompt, call_llm, validate_and_lock
+from .explainer import LLMProviderError, build_prompt, call_llm, validate_and_lock, _fallback_explanation
 
 app = FastAPI(title="Decision and LLM Engine", version="1.0")
 
@@ -18,42 +19,53 @@ async def evaluate(req: DecisionRequest, x_internal_token: str = Header(default=
     compat = req.compatibility
     required_parts = [p for p in req.parts if not p.get("owned", False)]
     price_unknown = any(p.get("price") is None for p in required_parts)
-    total = sum(p["price"] for p in required_parts) if not price_unknown else 0
+    
+    def get_median(p):
+        if p.get("price_low") is not None and p.get("price_high") is not None:
+            return round((p["price_low"] + p["price_high"]) / 2)
+        return p.get("price") or 0
+
+    total_median = sum(get_median(p) for p in required_parts) if not price_unknown else 0
     price_range = req.data_quality.get("total_price_range") or {}
     range_low, range_high = price_range.get("low"), price_range.get("high")
-    range_over_budget = range_high is not None and range_high > req.budget
-    range_overlaps_budget = (range_low is not None and range_high is not None and
-                             range_low <= req.budget < range_high)
+    
     good_alt = bool(req.alternatives.get("options")) and any(o.get("price_delta", 1) <= 0 or o.get("value_score", 0) > 0 for o in req.alternatives.get("options", []))
-    price_uncertain = ("price" in req.degraded_services or price_unknown or range_overlaps_budget)
-    decision_total = range_high if range_over_budget and not range_overlaps_budget else total
-    if range_low is not None and range_high is not None:
-        if range_over_budget and not range_overlaps_budget:
-            decision_total = range_high
-        elif total:
-            decision_total = min(range_high, total)
+    conflicting = any(f.get("flag") == "conflicting" for f in req.data_quality.get("flags", []))
+    price_uncertain = price_unknown or conflicting
+    
+    decision_total = total_median
 
     action, compat_bucket, fired = decide(req.budget, decision_total, compat.get("status", "NEEDS_REVIEW"),
                                           compat.get("hard_override", False), price_unknown, good_alt, price_uncertain)
     trace += fired
     missing_evidence = bool(req.degraded_services) or not req.data_quality.get("freshness_ok", True)
-    conflicting = any(f.get("flag") == "conflicting" for f in req.data_quality.get("flags", []))
-    conf, escalate = confidence_and_escalation(compat.get("score", 0.9), compat.get("uncertainty", 0.1), missing_evidence, conflicting)
+    conf, escalate = confidence_and_escalation(compat.get("score", 0.95), compat.get("uncertainty", 0.05), missing_evidence, conflicting)
     trace.append(f"confidence={conf} escalate={escalate}")
 
     reasons_in = [f"reason_code:{r}" for r in compat.get("reason_codes", [])]
     if price_unknown:
         reasons_in.append("Reference price data is incomplete; budget fit cannot be verified.")
     elif range_low is not None and range_high is not None:
-        reasons_in.append(f"Reference range {range_low:,}-{range_high:,} THB vs budget {req.budget:,} THB.")
+        reasons_in.append(f"ราคากลางอ้างอิง {total_median:,} THB (ช่วงราคา {range_low:,}-{range_high:,} THB) จากงบประมาณ {req.budget:,} THB")
     else:
-        reasons_in.append(f"Reference total {total:,} THB vs budget {req.budget:,} THB.")
+        reasons_in.append(f"ราคากลางอ้างอิง {total_median:,} THB จากงบประมาณ {req.budget:,} THB")
     wattage_warning = next((f"⚠ {r}" for r in compat.get("reason_codes", []) if "psu" in r or "wattage" in r), None)
 
     evidence_package = {"compatibility": compat, "alternatives": req.alternatives.get("options", [])[:3],
-                        "rag": req.evidence.get("passages", [])}
-    raw = await call_llm(build_prompt(action, evidence_package))  # None in this mini project -> fixed template
-    explanation, llm_used, fallback_used = validate_and_lock(action, raw, reasons_in, wattage_warning)
+                        "rag": req.evidence.get("passages", []), "decision_reasons": reasons_in,
+                        "wattage_warning": wattage_warning}
+    try:
+        raw = await call_llm(build_prompt(action, evidence_package))
+        explanation, llm_used, fallback_used = validate_and_lock(raw, reasons_in, wattage_warning)
+    except LLMProviderError as error:
+        if "quota or rate limit" in str(error):
+            explanation = _fallback_explanation(action)
+            explanation["reasons"] = list(dict.fromkeys(reasons_in + explanation.get("reasons", [])))
+            llm_used, fallback_used = False, True
+        else:
+            raise HTTPException(status_code=error.status_code, detail=str(error)) from error
+    except ValidationError as error:
+        raise HTTPException(status_code=502, detail="LLM provider returned an invalid explanation.") from error
     trace.append(f"llm_used={llm_used} fallback_used={fallback_used}")
 
     citations = [Citation(document_id=p.get("document_id", "?"), section=p.get("section", "?")) for p in req.evidence.get("passages", [])[:3]]

@@ -2,7 +2,7 @@
 
 ## หน้าที่
 
-รวม requested build parts, curated manufacturer specification facts ที่ Module 03 ส่งมา และ normalized price-reference records จาก Module 04 เป็น snapshot ต่อ request. เก็บ price range, timestamps, source lineage, coverage, freshness และ flags. ไม่มี scheduled ingestion หรือ persistent parts database; คำว่า snapshot/catalog ใน API หมายถึงข้อมูลของคำขอนี้ ไม่ใช่หน้าร้านหรือฐานข้อมูลจัดซื้อ.
+รวมเฉพาะชิ้นส่วนในชุดที่ Module 03 เลือกแล้ว พร้อม curated manufacturer specification facts และ normalized price-reference records จาก Module 04 เป็น snapshot ต่อ request. Price records ของ candidate ทางเลือกยังใช้ประกอบการเลือกใน Module 03 แต่จะไม่ถูกเพิ่มเข้าชุดผลลัพธ์ที่ส่งให้ผู้ใช้. เก็บ price range, timestamps, source lineage, coverage, freshness และ flags. ไม่มี scheduled ingestion หรือ persistent parts database; คำว่า snapshot/catalog ใน API หมายถึงข้อมูลของคำขอนี้ ไม่ใช่หน้าร้านหรือฐานข้อมูลจัดซื้อ.
 
 Missing prices remain `null`; existing owned parts are not assigned a fake zero price. ราคาที่ขาดทำให้ coverage ต่ำ/degraded และไม่รวมเป็นยอดราคาเต็ม.
 

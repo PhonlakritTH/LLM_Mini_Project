@@ -36,7 +36,10 @@ class FormatRequest(BaseModel):
     conversation_id: str
     user_id: Optional[str] = None
     locale: str = "th-TH"
-    action_code: Literal["FINALIZE_BUILD", "SWAP_COMPONENT", "RECONFIGURE_BUILD", "NEEDS_PRICE_DATA", "AVOID_COMBINATION"]
+    action_code: Literal[
+        "FINALIZE_BUILD", "SWAP_COMPONENT", "RECONFIGURE_BUILD", "NEEDS_PRICE_DATA",
+        "NEEDS_REVIEW", "AVOID_COMBINATION",
+    ]
     compatibility_status: Literal["compatible", "warning", "incompatible"]
     confidence: float
     escalate: bool

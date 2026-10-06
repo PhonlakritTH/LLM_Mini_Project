@@ -8,6 +8,16 @@ from app import tools
 def reset(monkeypatch):
     tools.reset_breakers(); CHECKPOINTS.clear()
     monkeypatch.setattr(settings, "retry_base_delay", 0)
+    monkeypatch.setattr(settings, "price_service_url", "")
+
+    async def live_manufacturer_pages(parts):
+        return [{
+            "part_id": part["part_id"], "status": "live", "source": part["source"],
+            "fetched_at": "2026-10-06T00:00:00+00:00",
+            "facts": {"name": part["name"], "page_title": part["name"]},
+        } for part in parts]
+
+    monkeypatch.setattr("app.graph.fetch_manufacturer_facts_for_parts", live_manufacturer_pages)
 
 def req(**k):
     values = {"request_id": "req-12345678", "budget": 60000, "use_case": "gaming"}
@@ -21,7 +31,10 @@ async def test_unconfigured_providers_return_degraded_without_fabricated_evidenc
     assert not r.evidence_package["data_quality"]["evidence_complete"]
     assert all(part["price"] is None for part in r.evidence_package["parts"] if not part["owned"])
     assert all(part["spec_source"] for part in r.evidence_package["parts"])
-    assert next(part for part in r.evidence_package["parts"] if part["type"] == "cpu")["name"] == "AMD Ryzen 5 7600"
+    spec_sources = r.evidence_package["data_quality"]["manufacturer_spec_sources"]
+    assert spec_sources["all_live"] and spec_sources["live_pages"] == spec_sources["requested_pages"]
+    assert len(spec_sources["records"]) == len(r.evidence_package["parts"])
+    assert next(part for part in r.evidence_package["parts"] if part["type"] == "cpu")["name"] in ("AMD Ryzen 5 7600", "AMD Ryzen 7 7800X3D")
     assert next(part for part in r.evidence_package["parts"] if part["type"] == "gpu")["brand"] == "nvidia"
 
 async def test_asks_for_missing_budget():
@@ -105,8 +118,16 @@ async def test_budget_selects_best_affordable_sourced_component_combination(monk
     async def prices(_state, _name, payload):
         ranges = {}
         for name in payload["names"]:
-            if "5600" in name:
+            if "7800X3D" in name:
+                value = 16000
+            elif "14700" in name:
+                value = 14000
+            elif "4070" in name:
+                value = 22000
+            elif "5600" in name:
                 value = 5000
+            elif "7500" in name:
+                value = 6000
             elif "7600" in name and "RX" not in name:
                 value = 8000
             elif "12400" in name:
@@ -121,6 +142,10 @@ async def test_budget_selects_best_affordable_sourced_component_combination(monk
                 value = 2000
             elif "DDR5" in name:
                 value = 3000
+            elif "7700" in name:
+                value = 15000
+            elif "4060 Ti" in name:
+                value = 14000
             elif "RTX 4060" in name:
                 value = 12000
             elif "RX 7600" in name:
@@ -133,10 +158,10 @@ async def test_budget_selects_best_affordable_sourced_component_combination(monk
                 "source": "Google Shopping via SerpApi", "records": []}
 
     monkeypatch.setattr(graph, "call_tool", prices)
-    result = await run_agent(req(budget=32000))
+    result = await run_agent(req(preferred_brand="amd", budget=32000))
     assert result.evidence_package["data_quality"]["budget_fit"] == "within_budget"
-    assert result.evidence_package["data_quality"]["total_price_range"]["high"] <= 32000
-    assert any(part["name"] == "AMD Ryzen 5 5600" for part in result.evidence_package["parts"])
+    assert result.evidence_package["data_quality"]["total_price"] <= 32000
+    assert any(part["name"] in ("AMD Ryzen 5 5600", "AMD Ryzen 5 7500F") for part in result.evidence_package["parts"])
     assert all(part.get("spec_source") for part in result.evidence_package["parts"])
 
 
@@ -153,5 +178,85 @@ def test_knowledge_seed_is_loaded_into_sqlite():
     if not database.is_absolute():
         database = MODULE_ROOT / database
     assert database.is_file()
-    assert len(BY_TYPE["cpu"]) == 3
+    assert len(BY_TYPE["cpu"]) >= 3
     assert all(part["source"].startswith("https://") for part in BY_TYPE["cpu"])
+
+
+async def test_manufacturer_provider_reads_structured_facts_from_live_page(monkeypatch):
+    from app.manufacturer_sources import fetch_manufacturer_facts
+
+    class Response:
+        url = "https://vendor.example/product"
+        headers = {"content-type": "text/html"}
+        text = """
+        <title>Product</title>
+        <script type="application/ld+json">
+        {"@type":"Product","name":"Product","additionalProperty":[{"name":"Socket","value":"AM5"}]}
+        </script>
+        """
+        def raise_for_status(self): pass
+
+    class Client:
+        def __init__(self, **_kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): pass
+        async def get(self, _url): return Response()
+
+    monkeypatch.setattr("app.manufacturer_sources.httpx.AsyncClient", Client)
+    result = await fetch_manufacturer_facts({
+        "part_id": "cpu-example", "source": "https://vendor.example/product",
+    })
+    assert result["status"] == "live"
+    assert result["facts"]["Socket"] == "AM5"
+
+
+def test_snapshot_records_exclude_untyped_manufacturer_page_metadata():
+    from app.graph import _result
+    from app.state import AgentState
+
+    state = AgentState(request=req())
+    state.start()
+    state.parts = [{"part_id": "cpu-example", "type": "cpu", "name": "Example CPU",
+                    "specs": {}, "source": "https://vendor.example/cpu",
+                    "spec_source": "https://vendor.example/cpu", "owned": False,
+                    "price": 10000}]
+    state.data_quality["manufacturer_spec_sources"] = {
+        "records": [{"part_id": "cpu-example", "status": "live",
+                     "source": "https://vendor.example/cpu",
+                     "facts": {"name": "Example CPU"},
+                     "fetched_at": "2026-10-06T00:00:00+00:00"}],
+    }
+    state.observations = {
+        "price": {"records": [{"kind": "price", "part_id": "Example CPU",
+                               "source": "Google Shopping via SerpApi"}]},
+        "manufacturer_specs": {"records": [{
+            "part_id": "cpu-example", "status": "live",
+            "source": "https://vendor.example/cpu",
+            "facts": {"name": "Example CPU"}, "fetched_at": "2026-10-06T00:00:00+00:00",
+        }]},
+    }
+    package = _result(state, "complete").evidence_package
+    assert package is not None
+    assert [record["kind"] for record in package["records"]] == ["price"]
+    assert package["data_quality"]["manufacturer_spec_sources"]["records"][0]["status"] == "live"
+
+
+async def test_white_case_and_wifi_constraints(monkeypatch):
+    from app import graph
+
+    async def mock_prices(_state, _name, payload):
+        ranges = {name: (1000, 2000) for name in payload["names"]}
+        return {"prices": {n: 1500 for n in payload["names"]}, "ranges": ranges, "missing": [], "as_of": "2026-10-06T00:00:00+00:00", "source": "Google Shopping via SerpApi", "records": []}
+
+    monkeypatch.setattr(graph, "call_tool", mock_prices)
+    result = await run_agent(req(question="อยากได้เคสสีขาว มี Wi-Fi ในตัว และ SSD 1TB", budget=50000))
+    assert result.status == "complete"
+    parts = result.evidence_package["parts"]
+    case_part = next(p for p in parts if p["type"] == "case")
+    mobo_part = next(p for p in parts if p["type"] == "motherboard")
+    ssd_part = next(p for p in parts if p["type"] == "storage")
+
+    assert "White" in case_part["name"] or case_part["specs"].get("color") == "white"
+    assert "WIFI" in mobo_part["name"] or "AX" in mobo_part["name"] or mobo_part["specs"].get("wifi") is True
+    assert ssd_part["specs"].get("capacity_gb", 0) >= 1000 or "1TB" in ssd_part["name"] or "1024GB" in ssd_part["name"]
+

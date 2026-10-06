@@ -36,7 +36,7 @@ def knowledge_assess(req: KnowledgeRequest, x_internal_token: str = Header(defau
         alt = AlternativeBuildOptions(options=[], excluded=[])
         # Optional retrieval and alternative suggestions do not block a compatibility assessment.
     if compat.status == "NEEDS_REVIEW":
-        degraded_services.append("compatibility_model")
+        degraded_services.append("compatibility_evidence_unverified")
     degraded = bool(degraded_services)
     return KnowledgeResponse(compatibility=compat, evidence=evidence, alternatives=alt, degraded=degraded,
                              degraded_services=degraded_services, versions=_versions())

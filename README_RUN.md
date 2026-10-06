@@ -1,12 +1,12 @@
 # Run the PC Spec Builder
 
-ระบบ local นี้เป็นเครื่องมือวางแผนสเปก ไม่ใช่ระบบซื้อขาย. Module 03 โหลด SQLite knowledge DB จาก seed file `03_pc_build_ai_agent/data/components.json`; ข้อมูล curated มีรายการเริ่มต้น 13 รุ่น/ชิ้นส่วนและยังต้อง audit จากหน้า manufacturer. ราคาอ้างอิงมาจาก Google Shopping ผ่าน SerpApi เมื่อมี API key. หาก key ไม่มีหรือรุ่นจับคู่ไม่ได้ ระบบยังเปิดได้แต่ราคา/ยอดรวมไม่พร้อมและคำตอบจะแสดง degraded.
+ระบบ local นี้เป็นเครื่องมือวางแผนสเปก ไม่ใช่ระบบซื้อขาย. Module 03 โหลด curated compatibility facts 13 รุ่น/ชิ้นส่วนจาก `03_pc_build_ai_agent/data/components.json` และพยายามอ่าน metadata/structured facts สดจาก official manufacturer pages. ราคาอ้างอิงมาจาก Google Shopping ผ่าน SerpApi; คำอธิบายจะมาจาก LLM provider แบบ OpenAI-compatible. หาก credentials/provider ไม่พร้อม ระบบไม่สร้างราคา/คำอธิบายจำลอง.
 
 ## Requirements
 
 - Node.js 20.9+ และ npm
 - Docker Desktop/Engine (แนะนำสำหรับรันครบทุก service)
-- SerpApi API key หากต้องการช่วงราคา live
+- SerpApi API key สำหรับช่วงราคา live และ LLM API key สำหรับคำอธิบายสด
 
 อย่า commit `.env` หรือวาง key ใน frontend/`NEXT_PUBLIC_*`. ตรวจ Terms/สิทธิ์ใช้ข้อมูลจาก SerpApi ก่อนเปิดบริการแก่ลูกค้า.
 
@@ -22,7 +22,10 @@ notepad .env
 ใส่ API key ในไฟล์ root `.env`:
 
 ```text
-SERPAPI_API_KEY=ใส่คีย์ส่วนตัวของคุณ
+SERPAPI_API_KEY=ใส่คีย์ SerpApi
+LLM_API_KEY=ใส่คีย์ผู้ให้บริการ LLM
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL_EXPLAINER=gpt-4o-mini
 ```
 
 จากนั้นเปิด Docker Desktop แล้วรัน:
@@ -63,8 +66,12 @@ Set-Location 06_compatibility_knowledge_services
 python -m uvicorn app.main:app --port 8400 --reload
 ```
 
+สร้าง `07_decision_llm_engine/.env` จาก `.env.example` แล้วตั้ง `LLM_API_KEY`, `LLM_BASE_URL` และ `LLM_MODEL_EXPLAINER` ให้ตรงผู้ให้บริการ OpenAI-compatible ก่อนส่งคำขอจัดสเปก:
+
 ```powershell
 Set-Location 07_decision_llm_engine
+Copy-Item .env.example .env
+# Set LLM_API_KEY, LLM_BASE_URL and LLM_MODEL_EXPLAINER in .env
 python -m uvicorn app.main:app --port 8500 --reload
 ```
 

@@ -24,9 +24,14 @@ class PricePrimary:
         async with httpx.AsyncClient(timeout=settings.provider_timeout) as client:
             async def lookup(part_id: str):
                 async with semaphore:
+                    query = part_id
+                    if ("intel" in part_id.lower() or "ryzen" in part_id.lower()) and not part_id.lower().startswith("cpu"):
+                        query = f"CPU {part_id}"
+                    elif "kingston" in part_id.lower() and not part_id.lower().startswith("ram"):
+                        query = f"RAM {part_id}"
                     response = await client.get("https://serpapi.com/search.json", params={
                         "engine": "google_shopping",
-                        "q": part_id,
+                        "q": query,
                         "google_domain": settings.google_domain,
                         "gl": settings.google_country,
                         "hl": settings.google_language,
@@ -44,13 +49,22 @@ class PricePrimary:
                 raise ProviderError(self.name, status=503, retryable=True) from error
 
         data = {}
+        prebuilt_kw = ("desktop", "laptop", "notebook", "all-in-one", "aio", "คอมประกอบ", "ชุดคอม", "คอมพิวเตอร์", "ครบชุด")
         for part_id, payload in results:
-            required = {term.lower() for term in (search_terms or {}).get(part_id, [])}
+            terms = (search_terms or {}).get(part_id, [])
+            required = {term.lower() for term in terms if term.lower() not in ("cpu", "ram")}
             if not required:
-                required = set(re.findall(r"[a-z0-9]+", part_id.lower()))
+                required = set(re.findall(r"[a-z0-9]+", part_id.lower())) - {"cpu", "ram"}
+            is_case = any(w in part_id.lower() for w in ("case", "forge", "chassis"))
+            is_cpu = "intel" in part_id.lower() or "ryzen" in part_id.lower()
             candidates = []
             for item in payload.get("shopping_results", []):
-                title_tokens = set(re.findall(r"[a-z0-9]+", item.get("title", "").lower()))
+                title_lower = item.get("title", "").lower()
+                if not is_case and any(kw in title_lower for kw in prebuilt_kw):
+                    continue
+                if is_cpu and any(kw in title_lower for kw in ("mainboard", "motherboard", "เมนบอร์ด")):
+                    continue
+                title_tokens = set(re.findall(r"[a-z0-9]+", title_lower))
                 price_text = str(item.get("price", ""))
                 price = item.get("extracted_price")
                 if (required and required.issubset(title_tokens) and isinstance(price, (int, float))
@@ -58,11 +72,15 @@ class PricePrimary:
                     candidates.append((round(price), item))
             if candidates:
                 prices = sorted(price for price, _ in candidates)
+                m = median(prices)
+                filtered = [p for p in prices if 0.5 * m <= p <= 1.8 * m]
+                if not filtered:
+                    filtered = prices
                 data[part_id] = {
-                    "price": round(median(prices)),
-                    "low_price": prices[0],
-                    "high_price": prices[-1],
-                    "observation_count": len(prices),
+                    "price": round(median(filtered)),
+                    "low_price": filtered[0],
+                    "high_price": filtered[-1],
+                    "observation_count": len(filtered),
                 }
 
         return {"data": data, "latency_ms": round((time.monotonic() - started) * 1000, 1)}

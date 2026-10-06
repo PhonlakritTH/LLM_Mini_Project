@@ -1,7 +1,10 @@
 from typing import Literal, Optional
 from pydantic import BaseModel
 
-ActionCode = Literal["FINALIZE_BUILD", "SWAP_COMPONENT", "RECONFIGURE_BUILD", "NEEDS_PRICE_DATA", "AVOID_COMBINATION"]
+ActionCode = Literal[
+    "FINALIZE_BUILD", "SWAP_COMPONENT", "RECONFIGURE_BUILD", "NEEDS_PRICE_DATA",
+    "NEEDS_REVIEW", "AVOID_COMBINATION",
+]
 
 class DecisionRequest(BaseModel):
     request_id: str

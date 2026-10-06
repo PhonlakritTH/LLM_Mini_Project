@@ -57,6 +57,10 @@ services:
     ports: ["8500:8500"]
     env_file: ./07_decision_llm_engine/.env.example
     depends_on: [compat_knowledge]
+    environment:
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL_EXPLAINER: ${LLM_MODEL_EXPLAINER:-gpt-4o-mini}
 
   recommendation_feedback:
     build: ./08_recommendation_feedback

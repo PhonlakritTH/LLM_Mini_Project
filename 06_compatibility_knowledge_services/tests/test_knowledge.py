@@ -32,6 +32,26 @@ def test_compatible_build():
     assert r.compatibility.status == "COMPATIBLE" and not r.compatibility.hard_override
     assert not r.evidence.found and not r.alternatives.options
 
+def test_compatibility_evidence_sources_are_returned_without_claiming_verification():
+    parts = sourced_parts()
+    parts[1]["specs"].update({
+        "cpu_support_list_source": "https://vendor.example/cpu-support",
+        "bios_support_source": "https://vendor.example/bios",
+        "ram_qvl_source": "https://vendor.example/memory-qvl",
+    })
+
+    response = knowledge_assess(
+        KnowledgeRequest(request_id="r11", snapshot=snap(parts)),
+        x_internal_token=settings.internal_token,
+    )
+
+    assert response.compatibility.status == "NEEDS_REVIEW"
+    assert response.compatibility.evidence_sources == [
+        "https://vendor.example/bios",
+        "https://vendor.example/cpu-support",
+        "https://vendor.example/memory-qvl",
+    ]
+
 def test_socket_mismatch_is_hard_incompatible():
     parts = sourced_parts()
     parts[1]["specs"]["socket"] = "LGA1700"
@@ -64,6 +84,7 @@ def test_unverified_bios_and_memory_qvl_require_review():
                          x_internal_token=settings.internal_token)
     assert r.compatibility.status == "NEEDS_REVIEW"
     assert "Motherboard BIOS version support has not been verified." in r.compatibility.reason_codes
+    assert "compatibility_evidence_unverified" in r.degraded_services
 
 def test_alternatives_exclude_wrong_socket():
     alt_socket = [{"category": "cpu", "part_id": "Ryzen 9 7900", "socket": "AM5"}, {"category": "gpu", "part_id": "RTX 4070 Super"}]

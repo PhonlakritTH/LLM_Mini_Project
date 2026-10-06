@@ -12,6 +12,11 @@ def assess(parts: list[dict], constraints: dict) -> CompatibilityAssessment:
     }.items()}
     conflicts: list[str] = []
     unknown: list[str] = []
+    evidence_sources = sorted({
+        url
+        for key in ("cpu_support_list_source", "bios_support_source", "ram_qvl_source")
+        if (url := specs["motherboard"].get(key))
+    })
 
     for required in ("cpu", "motherboard", "ram", "psu", "case"):
         if required not in by:
@@ -93,6 +98,7 @@ def assess(parts: list[dict], constraints: dict) -> CompatibilityAssessment:
     if not reasons:
         reasons.append("all_sourced_checks_passed")
     return CompatibilityAssessment(status=status, score=score, uncertainty=uncertainty,
-                                   reason_codes=reasons, hard_override=bool(conflicts),
+                                   reason_codes=reasons, evidence_sources=evidence_sources,
+                                   hard_override=bool(conflicts),
                                    model_version=settings.model_version,
                                    feature_schema_version=settings.feature_schema_version)

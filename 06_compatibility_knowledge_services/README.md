@@ -2,7 +2,7 @@
 
 ## หน้าที่
 
-ตรวจ snapshot ของ build จาก facts ที่มีแหล่งอ้างอิง: CPU/motherboard socket และ CPU support list, memory generation, PSU wattage/connectors, GPU length/case clearance และ board/case form factor. ถ้าข้อมูล critical หรือ provenance หาย จะให้ `NEEDS_REVIEW`; ความขัดแย้งชัดเจนจะเป็น `INCOMPATIBLE`. RAG และ alternative retrieval ยังปิด/ไม่มี live source และไม่ใช้ sample data เป็นข้อเท็จจริง.
+ตรวจ snapshot ของ build จาก facts ที่มีแหล่งอ้างอิง: CPU/motherboard socket และ CPU support list, memory generation, PSU wattage/connectors, GPU length/case clearance และ board/case form factor. ถ้าข้อมูล critical หรือ provenance หาย จะให้ `NEEDS_REVIEW`; ความขัดแย้งชัดเจนจะเป็น `INCOMPATIBLE`. ถ้ามี URL หน้า support/BIOS/QVL ของผู้ผลิต ระบบจะแสดงลิงก์ให้ตรวจ แต่ URL เพียงอย่างเดียวไม่ถือเป็นการยืนยันและไม่เปลี่ยนสถานะ `not_verified`. ต้องบันทึกข้อเท็จจริงและตรวจวันที่จากหน้าเอกสารก่อนเปลี่ยนสถานะเป็น verified. กรณีข้อมูลยังไม่ได้ยืนยันจะรายงานเป็น `compatibility_evidence_unverified` ไม่ใช่ความหมายว่า service ล่ม. RAG และ alternative retrieval ยังปิด/ไม่มี live source และไม่ใช้ sample data เป็นข้อเท็จจริง.
 
 ฐานความรู้เริ่มต้นใน Module 03 มี BIOS-version และ RAM-QVL validation เป็น `not_verified`; จึงยังไม่ควรอ้างว่า build ผ่าน compatibility ครบ แม้ socket และชนิด RAM จะตรงกัน. เพิ่มรุ่นได้เมื่อมี source, version, units และหลักฐาน support matrix ที่ตรวจสอบได้.
 

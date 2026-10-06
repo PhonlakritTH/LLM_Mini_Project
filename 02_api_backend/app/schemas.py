@@ -33,11 +33,15 @@ class Part(BaseModel):
     price_source: Optional[str] = None
     spec_source: Optional[str] = None
     owned: bool = False
+    store_search_links: list[dict[str, str]] = []
 
 class BuildResponse(BaseModel):
     status: Literal["complete", "needs_info", "degraded", "budget_exhausted"] = "complete"
     questions: list[str] = []
-    recommendation_code: Literal["finalize_build", "swap_component", "reconfigure_build", "needs_price_data", "avoid_combination"]
+    recommendation_code: Literal[
+        "finalize_build", "swap_component", "reconfigure_build", "needs_price_data",
+        "needs_review", "avoid_combination",
+    ]
     compatibility_status: Literal["compatible", "warning", "incompatible"]
     confidence: Optional[float] = None
     summary: str
